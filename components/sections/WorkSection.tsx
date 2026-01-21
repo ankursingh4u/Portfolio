@@ -27,7 +27,7 @@ export function WorkSection() {
           <span className="ml-2">
             More projects available on{' '}
             <a
-              href="https://github.com/ankursingh"
+              href="https://github.com/ankursingh4u"
               target="_blank"
               rel="noopener noreferrer"
               className="terminal-link"
