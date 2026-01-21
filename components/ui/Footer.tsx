@@ -47,7 +47,7 @@ export function Footer() {
             </a>
             <span className="text-terminal-border">|</span>
             <a
-              href={siteConfig.social.twitter}
+              href={siteConfig.social.X}
               target="_blank"
               rel="noopener noreferrer"
               className="text-sm text-terminal-dim hover:text-terminal-accent transition-colors font-mono"
