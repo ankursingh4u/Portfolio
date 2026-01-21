@@ -1,7 +1,7 @@
 export const siteConfig = {
   name: 'Ankur Singh',
   username: 'ankur_singh',
-  title: 'Software Engineer',
+  title: 'A generalist Software Engineer',
   description: 'Building production-ready systems with clarity and ownership.',
   email: 'a4ankur.mail@gmail.com', 
   location: 'India',
