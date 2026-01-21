@@ -10,7 +10,7 @@ export function WorkSection() {
         <div className="section-header">
           <h2 className="section-title">work</h2>
           <span className="text-xs text-terminal-dim font-mono">
-            // project logs
+        
           </span>
         </div>
 

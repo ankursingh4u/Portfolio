@@ -62,7 +62,7 @@ export const projects = [
     status: 'completed',
     year: '2024',
     link: 'https://docdrawer.onrender.com', 
-    github: 'https://github.com/ankursingh4u/DocDrawer', // Replace with actual
+    github: 'https://github.com/ankursingh4u/DocDrawer', 
   },
  
   

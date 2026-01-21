@@ -11,7 +11,7 @@ export function AboutSection() {
         <div className="section-header">
           <h2 className="section-title">about</h2>
           <span className="text-xs text-terminal-dim font-mono">
-            // engineer profile
+          
           </span>
         </div>
 
