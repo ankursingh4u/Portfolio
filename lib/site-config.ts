@@ -1,7 +1,7 @@
 export const siteConfig = {
   name: 'Ankur Singh',
   username: 'ankur_singh',
-  title: 'Generalist Software Engineer',
+title: 'A Generalist Software Engineer',
   description: 'Building production-ready systems with clarity and ownership.',
   email: 'a4ankur.mail@gmail.com',
   location: 'India',
@@ -108,7 +108,7 @@ export const personalProjects = [
 export const projects = [...companyProjects, ...personalProjects]
 
 export const aboutContent = {
-  intro: `Fast-learning Software Engineer with hands-on experience building real-world products using modern web technologies. Currently working as a Full-Stack Engineer Intern on a live production product (SaaS applications), contributing to feature development, system improvements, and scalable implementations.`,
+  intro: `Fast-learning Software Engineer with hands-on experience building real-world products using modern web technologies. Currently working as a Full-Stack Engineer Intern on live production product (SaaS applications), contributing to feature development, system improvements, and scalable implementations.`,
 
   journey: `My journey began with deep involvement across 200+ Web3 projects, where I developed strong systems thinking, experimentation discipline, and understanding of decentralized ecosystems. I intentionally transitioned toward building practical, impact-driven digital products focused on usability, clarity, and long-term maintainability.`,
 
