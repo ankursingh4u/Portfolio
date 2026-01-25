@@ -174,7 +174,7 @@ export function ContactSection() {
 
           {/* Right side - Form */}
           <motion.div variants={itemVariants}>
-            <AnimatedBorder color="#22c55e">
+            <AnimatedBorder borderColor="green">
             <TerminalWindow title="compose_message.sh">
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Name field */}
