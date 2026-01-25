@@ -15,7 +15,7 @@ export function CyberEffectsProvider({ children }: CyberEffectsProviderProps) {
   return (
     <>
       {/* Global background effects */}
-      <CRTEffect intensity={0.3} />
+      <CRTEffect />
       <MouseTrail />
       <ProgressBar />
 
