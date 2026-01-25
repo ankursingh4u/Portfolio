@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { siteConfig } from '@/lib/site-config'
 import { Navigation, Footer } from '@/components/ui'
+import { CyberEffectsProvider } from '@/components/effects'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -58,9 +59,11 @@ export default function RootLayout({
         <link rel="manifest" href="/manifest.json" />
       </head>
       <body className="min-h-screen bg-terminal-bg text-terminal-text antialiased">
-        <Navigation />
-        <main>{children}</main>
-        <Footer />
+        <CyberEffectsProvider>
+          <Navigation />
+          <main>{children}</main>
+          <Footer />
+        </CyberEffectsProvider>
       </body>
     </html>
   )

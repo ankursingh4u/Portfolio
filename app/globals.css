@@ -197,6 +197,287 @@
   .container-wide {
     @apply max-w-5xl mx-auto;
   }
+
+  /* ===== CYBERPUNK EFFECTS ===== */
+
+  /* Text Glow - Neon text effect */
+  .text-glow {
+    text-shadow:
+      0 0 5px currentColor,
+      0 0 10px currentColor,
+      0 0 20px currentColor,
+      0 0 40px currentColor;
+  }
+
+  .text-glow-sm {
+    text-shadow:
+      0 0 5px currentColor,
+      0 0 10px currentColor;
+  }
+
+  .text-glow-accent {
+    text-shadow:
+      0 0 5px rgba(34, 197, 94, 0.5),
+      0 0 10px rgba(34, 197, 94, 0.3),
+      0 0 20px rgba(34, 197, 94, 0.2);
+  }
+
+  /* Border Neon - Glowing borders */
+  .border-neon {
+    @apply border border-terminal-accent;
+    box-shadow:
+      0 0 5px rgba(34, 197, 94, 0.3),
+      0 0 10px rgba(34, 197, 94, 0.2),
+      inset 0 0 5px rgba(34, 197, 94, 0.1);
+  }
+
+  .border-neon-blue {
+    @apply border border-cyber-blue;
+    box-shadow:
+      0 0 5px rgba(59, 130, 246, 0.3),
+      0 0 10px rgba(59, 130, 246, 0.2),
+      inset 0 0 5px rgba(59, 130, 246, 0.1);
+  }
+
+  .border-neon-amber {
+    @apply border border-cyber-amber;
+    box-shadow:
+      0 0 5px rgba(245, 158, 11, 0.3),
+      0 0 10px rgba(245, 158, 11, 0.2),
+      inset 0 0 5px rgba(245, 158, 11, 0.1);
+  }
+
+  .border-neon-red {
+    @apply border border-cyber-red;
+    box-shadow:
+      0 0 5px rgba(239, 68, 68, 0.3),
+      0 0 10px rgba(239, 68, 68, 0.2),
+      inset 0 0 5px rgba(239, 68, 68, 0.1);
+  }
+
+  /* Scan Lines - CRT monitor overlay effect */
+  .scan-lines {
+    position: relative;
+  }
+
+  .scan-lines::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.1) 2px,
+      rgba(0, 0, 0, 0.1) 4px
+    );
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  /* CRT Flicker - Subtle screen flicker animation */
+  .crt-flicker {
+    animation: crtFlicker 0.1s infinite;
+  }
+
+  @keyframes crtFlicker {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.98;
+    }
+  }
+
+  /* Glass - Glassmorphism effect */
+  .glass {
+    @apply bg-terminal-surface/60 backdrop-blur-md;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .glass-dark {
+    @apply bg-terminal-bg/80 backdrop-blur-lg;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+  }
+
+  /* Noise Overlay - Subtle noise texture */
+  .noise-overlay {
+    position: relative;
+  }
+
+  .noise-overlay::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+    opacity: 0.02;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* Text Gradient Animated - Moving gradient text */
+  .text-gradient-animated {
+    background: linear-gradient(
+      90deg,
+      #22c55e,
+      #06B6D4,
+      #A855F7,
+      #22c55e
+    );
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: gradientX 3s ease infinite;
+  }
+
+  /* Cyber Card - Enhanced card with cyberpunk styling */
+  .cyber-card {
+    @apply bg-terminal-surface border border-terminal-border rounded-lg;
+    @apply transition-all duration-300;
+  }
+
+  .cyber-card:hover {
+    @apply border-terminal-accent;
+    box-shadow:
+      0 0 20px rgba(34, 197, 94, 0.1),
+      inset 0 0 20px rgba(34, 197, 94, 0.02);
+  }
+
+  /* Animated Border - Gradient border animation */
+  .animated-border {
+    position: relative;
+    background: linear-gradient(#111113, #111113) padding-box,
+                linear-gradient(90deg, #22c55e, #06B6D4, #A855F7, #22c55e) border-box;
+    border: 1px solid transparent;
+    background-size: 100% 100%, 200% 100%;
+    animation: borderFlow 3s linear infinite;
+  }
+
+  /* Glitch Text Effect */
+  .glitch-text {
+    position: relative;
+  }
+
+  .glitch-text::before,
+  .glitch-text::after {
+    content: attr(data-text);
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .glitch-text::before {
+    left: 2px;
+    text-shadow: -2px 0 #ff0000;
+    clip-path: inset(0 0 0 0);
+    animation: glitchBefore 2s infinite linear alternate-reverse;
+  }
+
+  .glitch-text::after {
+    left: -2px;
+    text-shadow: 2px 0 #00ffff;
+    clip-path: inset(0 0 0 0);
+    animation: glitchAfter 2s infinite linear alternate-reverse;
+  }
+
+  @keyframes glitchBefore {
+    0%, 100% {
+      clip-path: inset(0 0 95% 0);
+    }
+    20% {
+      clip-path: inset(30% 0 50% 0);
+    }
+    40% {
+      clip-path: inset(70% 0 10% 0);
+    }
+    60% {
+      clip-path: inset(10% 0 80% 0);
+    }
+    80% {
+      clip-path: inset(50% 0 30% 0);
+    }
+  }
+
+  @keyframes glitchAfter {
+    0%, 100% {
+      clip-path: inset(95% 0 0 0);
+    }
+    20% {
+      clip-path: inset(50% 0 30% 0);
+    }
+    40% {
+      clip-path: inset(10% 0 70% 0);
+    }
+    60% {
+      clip-path: inset(80% 0 10% 0);
+    }
+    80% {
+      clip-path: inset(30% 0 50% 0);
+    }
+  }
+
+  /* Hover Glow Effect */
+  .hover-glow {
+    @apply transition-all duration-300;
+  }
+
+  .hover-glow:hover {
+    box-shadow:
+      0 0 20px rgba(34, 197, 94, 0.2),
+      0 0 40px rgba(34, 197, 94, 0.1);
+  }
+
+  /* Pulse Ring Effect */
+  .pulse-ring {
+    position: relative;
+  }
+
+  .pulse-ring::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    height: 100%;
+    border: 1px solid rgba(34, 197, 94, 0.5);
+    border-radius: inherit;
+    animation: pulseRing 2s ease-out infinite;
+  }
+
+  @keyframes pulseRing {
+    0% {
+      transform: translate(-50%, -50%) scale(1);
+      opacity: 1;
+    }
+    100% {
+      transform: translate(-50%, -50%) scale(1.5);
+      opacity: 0;
+    }
+  }
+
+  /* Matrix Rain Character */
+  .matrix-char {
+    @apply text-terminal-accent font-mono;
+    text-shadow: 0 0 10px rgba(34, 197, 94, 0.8);
+  }
+
+  /* Focus Glow for inputs */
+  .focus-glow:focus {
+    @apply outline-none border-terminal-accent;
+    box-shadow:
+      0 0 0 1px rgba(34, 197, 94, 0.3),
+      0 0 15px rgba(34, 197, 94, 0.2);
+  }
 }
 
 @layer utilities {
@@ -224,5 +505,15 @@
 
   .delay-500 {
     animation-delay: 500ms;
+  }
+
+  /* Preserve 3D for transforms */
+  .preserve-3d {
+    transform-style: preserve-3d;
+  }
+
+  /* Backface hidden */
+  .backface-hidden {
+    backface-visibility: hidden;
   }
 }
