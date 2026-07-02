@@ -10,13 +10,10 @@ const EASE = [0.16, 1, 0.3, 1] as const
 
 /** Where the caption card is anchored on screen + where its leader line lands. */
 interface Anchor {
-  /** card centre-x and top (fixed px) */
   cardX: number
   cardTop: number
-  /** the connecting point ON the card (top- or bottom-centre) */
   joinX: number
   joinY: number
-  /** the planet target the line points AT */
   targetX: number
   targetY: number
   targetR: number
@@ -46,8 +43,7 @@ export function Tour() {
   const isPlanet = tourStep?.kind === 'planet'
 
   // Track the spotlighted planet's live screen position and place the caption
-  // beside it with an accurate leader line. The camera holds the planet roughly
-  // centred during each step, so this settles in a few frames then stays put.
+  // beside it with an accurate leader line.
   useEffect(() => {
     if (!tourActive || !isPlanet) {
       setAnchor(null)
@@ -60,12 +56,8 @@ export function Tour() {
         const vw = window.innerWidth
         const vh = window.innerHeight
         const cardH = cardRef.current?.offsetHeight ?? 220
-        // Half the card width in px (CARD_W = min(92vw, 30rem)).
         const halfW = Math.min(vw * 0.92, 480) / 2
         const cardX = Math.max(halfW + 14, Math.min(vw - halfW - 14, s.x))
-
-        // Prefer placing the card BELOW the planet; flip above if it would
-        // overflow the bottom (where the controls dock lives).
         const belowTop = s.y + s.r + GAP
         const fitsBelow = belowTop + cardH + 96 <= vh
         const cardTop = fitsBelow ? belowTop : s.y - s.r - GAP - cardH
@@ -81,8 +73,6 @@ export function Tour() {
             targetY: s.y,
             targetR: s.r,
           }
-          // Skip the state update when nothing meaningfully moved (avoids a
-          // per-frame re-render once the planet is parked under the camera).
           if (
             prev &&
             Math.abs(prev.cardX - next.cardX) < 0.5 &&
@@ -106,111 +96,164 @@ export function Tour() {
   const stepKey = tourStep.kind === 'planet' ? tourStep.nav.name : tourStep.kind
   const contact = navByDest('contact')
   const accent =
-    tourStep.kind === 'planet' ? tourStep.nav.accent : 'rgba(255,255,255,0.6)'
+    tourStep.kind === 'planet'
+      ? tourStep.nav.accent
+      : tourStep.kind === 'sun'
+        ? '#f5b73b'
+        : '#8b7cf6'
+  const totalSteps = tourCount + 2
+  const stepNo = String(tourIndex + 1).padStart(2, '0')
 
-  // Floating beside the planet only when we have a fresh anchor for THIS step.
-  const floating = isPlanet && !!anchor
+  // Staggered content reveal inside each card.
+  const stagger = {
+    hidden: {},
+    show: { transition: { staggerChildren: reduce ? 0 : 0.07, delayChildren: reduce ? 0 : 0.12 } },
+  }
+  const item = {
+    hidden: reduce ? {} : { opacity: 0, y: 14 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: EASE } },
+  }
+
+  const chip = (text: string) => (
+    <motion.div variants={item} className="flex items-center justify-center gap-2.5">
+      <span
+        className="rounded-full border px-2.5 py-0.5 font-mono text-[10px] tracking-widest"
+        style={{ borderColor: `${accent}55`, color: accent, background: `${accent}14` }}
+      >
+        {stepNo} / {String(totalSteps).padStart(2, '0')}
+      </span>
+      <span className="font-mono text-xs uppercase tracking-[0.25em]" style={{ color: accent }}>
+        {text}
+      </span>
+    </motion.div>
+  )
 
   const cardInner = (
     <AnimatePresence mode="wait">
       <motion.div
         key={stepKey}
-        initial={{ opacity: 0, y: reduce ? 0 : 14 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: reduce ? 0 : -12 }}
-        transition={{ duration: reduce ? 0 : 0.4, ease: EASE }}
-        className="pointer-events-auto rounded-2xl border border-white/10 bg-[#0b1327]/95 p-6 text-center shadow-[0_24px_70px_-20px_rgba(0,0,0,0.85)]"
+        initial={
+          reduce
+            ? { opacity: 0 }
+            : { opacity: 0, y: 26, scale: 0.94, filter: 'blur(8px)' }
+        }
+        animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+        exit={
+          reduce ? { opacity: 0 } : { opacity: 0, y: -18, scale: 0.97, filter: 'blur(6px)' }
+        }
+        transition={{ duration: reduce ? 0 : 0.55, ease: EASE }}
+        className="pointer-events-auto relative overflow-hidden rounded-2xl border bg-[#070c1a]/95 p-6 text-center"
+        style={{
+          borderColor: `${accent}3a`,
+          boxShadow: `0 24px 70px -20px rgba(0,0,0,0.9), 0 0 70px -28px ${accent}88, inset 0 1px 0 0 ${accent}2e`,
+        }}
       >
-        {tourStep.kind === 'sun' && (
-          <>
-            <p className="font-mono text-xs uppercase tracking-[0.25em] text-amber-300/90">
-              the sun · start here
-            </p>
-            <h2 className="mt-2 text-2xl font-bold text-white md:text-3xl">
-              This is {siteConfig.name}
-            </h2>
-            <p className="mt-3 text-sm leading-relaxed text-slate-300">
-              At the centre of it all. Everything in this system orbits the work —
-              let me fly you through each world, one planet at a time.
-            </p>
-          </>
-        )}
+        {/* accent beam + faint orbit decorations */}
+        <span
+          aria-hidden
+          className="absolute inset-x-10 top-0 h-px"
+          style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)` }}
+        />
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -right-12 -top-12 h-36 w-36 rounded-full border"
+          style={{ borderColor: `${accent}1f` }}
+        />
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -bottom-16 -left-16 h-44 w-44 rounded-full border"
+          style={{ borderColor: `${accent}14` }}
+        />
 
-        {tourStep.kind === 'planet' && (
-          <>
-            <p
-              className="font-mono text-xs uppercase tracking-[0.25em]"
-              style={{ color: tourStep.nav.accent }}
-            >
-              {tourStep.nav.name} → {tourStep.nav.label.replace(' ↗', '')}
-            </p>
-            <h2 className="mt-2 text-2xl font-bold text-white md:text-3xl">
-              {tourStep.nav.label.replace(' ↗', '')}
-            </h2>
-            <p className="mt-3 text-sm leading-relaxed text-slate-300">
-              {tourStep.nav.blurb}
-            </p>
-            {tourStep.nav.kind === 'world' ? (
-              <button
-                type="button"
-                onClick={() => {
-                  const nav = tourStep.nav
-                  endTour()
-                  setTimeout(() => enterWorld(nav), reduce ? 0 : 120)
-                }}
-                className="mt-4 inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold text-[#05070f]"
-                style={{ background: tourStep.nav.accent }}
-              >
-                Fly to this world →
-              </button>
-            ) : (
-              <a
-                href={tourStep.nav.target}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-white hover:bg-white/10"
-              >
-                Open {tourStep.nav.label}
-              </a>
-            )}
-          </>
-        )}
+        <motion.div variants={stagger} initial="hidden" animate="show" className="relative">
+          {tourStep.kind === 'sun' && (
+            <>
+              {chip('the sun · start here')}
+              <motion.h2 variants={item} className="mt-3 text-2xl font-bold text-white md:text-3xl">
+                This is {siteConfig.name}
+              </motion.h2>
+              <motion.p variants={item} className="mt-3 text-sm leading-relaxed text-slate-300">
+                At the centre of it all. Everything in this system orbits the work — let me fly
+                you through each world, one planet at a time.
+              </motion.p>
+            </>
+          )}
 
-        {tourStep.kind === 'finale' && (
-          <>
-            <p className="font-mono text-xs uppercase tracking-[0.25em] text-emerald-300/90">
-              tour complete
-            </p>
-            <h2 className="mt-2 text-2xl font-bold text-white md:text-3xl">
-              You’ve seen my cosmos.
-            </h2>
-            <p className="mt-3 text-sm leading-relaxed text-slate-300">
-              Now explore it yourself — or jump straight to working together.
-            </p>
-            <div className="mt-4 flex flex-wrap justify-center gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  endTour()
-                  if (contact) setTimeout(() => enterWorld(contact), reduce ? 0 : 120)
-                }}
-                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 px-5 py-2 text-sm font-semibold text-white"
-              >
-                Let’s talk →
-              </button>
-              <button
-                type="button"
-                onClick={endTour}
-                className="rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-white hover:bg-white/10"
-              >
-                Explore freely
-              </button>
-            </div>
-          </>
-        )}
+          {tourStep.kind === 'planet' && (
+            <>
+              {chip(tourStep.nav.name)}
+              <motion.h2 variants={item} className="mt-3 text-2xl font-bold text-white md:text-3xl">
+                {tourStep.nav.label.replace(' ↗', '')}
+              </motion.h2>
+              <motion.p variants={item} className="mt-3 text-sm leading-relaxed text-slate-300">
+                {tourStep.nav.blurb}
+              </motion.p>
+              <motion.div variants={item}>
+                {tourStep.nav.kind === 'world' ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nav = tourStep.nav
+                      endTour()
+                      setTimeout(() => enterWorld(nav), reduce ? 0 : 120)
+                    }}
+                    className="mt-5 inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold text-[#05070f] transition-transform hover:scale-[1.04]"
+                    style={{ background: accent, boxShadow: `0 8px 30px -8px ${accent}aa` }}
+                  >
+                    Land on this world →
+                  </button>
+                ) : (
+                  <a
+                    href={tourStep.nav.target}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-5 inline-flex items-center gap-2 rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-white hover:bg-white/10"
+                  >
+                    Open {tourStep.nav.label}
+                  </a>
+                )}
+              </motion.div>
+            </>
+          )}
+
+          {tourStep.kind === 'finale' && (
+            <>
+              {chip('tour complete')}
+              <motion.h2 variants={item} className="mt-3 text-2xl font-bold text-white md:text-3xl">
+                You’ve seen my cosmos.
+              </motion.h2>
+              <motion.p variants={item} className="mt-3 text-sm leading-relaxed text-slate-300">
+                Now explore it yourself — grab the system, zoom into any world — or jump straight
+                to working together.
+              </motion.p>
+              <motion.div variants={item} className="mt-5 flex flex-wrap justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    endTour()
+                    if (contact) setTimeout(() => enterWorld(contact), reduce ? 0 : 120)
+                  }}
+                  className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 px-5 py-2 text-sm font-semibold text-white shadow-[0_8px_30px_-8px_rgba(139,124,246,0.7)] transition-transform hover:scale-[1.04]"
+                >
+                  Let’s talk →
+                </button>
+                <button
+                  type="button"
+                  onClick={endTour}
+                  className="rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+                >
+                  Explore freely
+                </button>
+              </motion.div>
+            </>
+          )}
+        </motion.div>
       </motion.div>
     </AnimatePresence>
   )
+
+  // Floating beside the planet only when we have a fresh anchor for THIS step.
+  const floating = isPlanet && !!anchor
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[55]">
@@ -225,7 +268,7 @@ export function Tour() {
         </button>
       </div>
 
-      {/* Leader line from the card to the spotlighted planet */}
+      {/* Leader line — energy flows from the card toward the planet. */}
       {floating && anchor && (
         <svg
           aria-hidden="true"
@@ -234,27 +277,35 @@ export function Tour() {
           <motion.line
             key={stepKey}
             initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.3 }}
-            x1={anchor.targetX}
-            y1={anchor.targetY}
-            x2={anchor.joinX}
-            y2={anchor.joinY}
+            animate={{
+              opacity: 1,
+              strokeDashoffset: reduce ? 0 : [0, -14],
+            }}
+            transition={{
+              opacity: { duration: 0.3 },
+              strokeDashoffset: { duration: 0.9, repeat: Infinity, ease: 'linear' },
+            }}
+            x1={anchor.joinX}
+            y1={anchor.joinY}
+            x2={anchor.targetX}
+            y2={anchor.targetY}
             stroke={accent}
             strokeWidth={1.5}
             strokeDasharray="2 5"
             strokeLinecap="round"
           />
-          <circle cx={anchor.targetX} cy={anchor.targetY} r={4} fill={accent} />
-          <circle
+          <motion.circle
+            key={`pulse-${stepKey}`}
             cx={anchor.targetX}
             cy={anchor.targetY}
-            r={9}
             fill="none"
             stroke={accent}
             strokeWidth={1}
-            opacity={0.4}
+            initial={{ r: 4, opacity: 0.8 }}
+            animate={reduce ? { r: 9, opacity: 0.4 } : { r: [5, 14], opacity: [0.7, 0] }}
+            transition={reduce ? undefined : { duration: 1.6, repeat: Infinity, ease: 'easeOut' }}
           />
+          <circle cx={anchor.targetX} cy={anchor.targetY} r={3.5} fill={accent} />
           <circle cx={anchor.joinX} cy={anchor.joinY} r={2.5} fill={accent} />
         </svg>
       )}
@@ -282,10 +333,10 @@ export function Tour() {
       )}
 
       {/* Controls dock — pinned to the bottom edge */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#05070f] via-[#05070f]/70 to-transparent px-4 pb-6 pt-10">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#02030a] via-[#02030a]/70 to-transparent px-4 pb-6 pt-10">
         <div className="mx-auto flex w-full max-w-xl items-center justify-between gap-4">
-          <div className="pointer-events-auto flex items-center gap-1.5">
-            {Array.from({ length: tourCount + 2 }, (_, i) => {
+          <div className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-white/10 bg-black/50 px-3 py-2 backdrop-blur-sm">
+            {Array.from({ length: totalSteps }, (_, i) => {
               const active = tourIndex === i
               return (
                 <button
@@ -293,12 +344,15 @@ export function Tour() {
                   type="button"
                   onClick={() => tourGoTo(i)}
                   aria-label={`Go to tour step ${i + 1}`}
-                  className="grid h-4 w-4 place-items-center focus-visible:outline-none"
+                  className="grid h-4 place-items-center focus-visible:outline-none"
                 >
                   <span
-                    className={`block rounded-full transition-all ${
-                      active ? 'h-2 w-2 bg-white' : 'h-1.5 w-1.5 bg-white/30 hover:bg-white/60'
-                    }`}
+                    className="block rounded-full transition-all duration-300"
+                    style={
+                      active
+                        ? { width: 18, height: 6, background: accent, boxShadow: `0 0 10px ${accent}aa` }
+                        : { width: 6, height: 6, background: 'rgba(255,255,255,0.28)' }
+                    }
                   />
                 </button>
               )
@@ -314,11 +368,12 @@ export function Tour() {
             >
               ← prev
             </button>
-            {tourIndex < tourCount + 1 && (
+            {tourIndex < totalSteps - 1 && (
               <button
                 type="button"
                 onClick={tourNext}
-                className="rounded-full border border-white/25 bg-white/15 px-4 py-2 font-mono text-xs font-semibold text-white transition-colors hover:bg-white/20"
+                className="rounded-full px-4 py-2 font-mono text-xs font-semibold text-[#05070f] transition-transform hover:scale-[1.05]"
+                style={{ background: accent, boxShadow: `0 6px 24px -8px ${accent}aa` }}
               >
                 next →
               </button>

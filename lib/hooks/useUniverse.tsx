@@ -54,7 +54,9 @@ interface UniverseCtx {
   getSpotlight: () => { x: number; y: number; r: number } | null
   frozen: boolean
   // actions
-  enterWorld: (nav: PlanetNav) => void
+  enterWorld: (nav: PlanetNav, anchor?: string) => void
+  /** Consume-once '#anchor' a moon requested — the world scrolls to it on mount. */
+  takeAnchor: () => string | null
   exitWorld: () => void
   startTour: () => void
   endTour: () => void
@@ -127,10 +129,20 @@ export function UniverseProvider({
   }, [])
 
   // ── World navigation ──────────────────────────────────────────────────
+  // A moon can request a '#section' inside the world it belongs to; the world
+  // consumes it (takeAnchor) once mounted and scrolls there.
+  const pendingAnchorRef = useRef<string | null>(null)
+  const takeAnchor = useCallback(() => {
+    const a = pendingAnchorRef.current
+    pendingAnchorRef.current = null
+    return a
+  }, [])
+
   const enterWorld = useCallback(
-    (nav: PlanetNav) => {
+    (nav: PlanetNav, anchor?: string) => {
       if (nav.kind !== 'world') return
       clearTimers()
+      pendingAnchorRef.current = anchor ?? null
       const { x, y } = offsetOf(nav.name)
       const S = 9
       setActive(nav)
@@ -289,6 +301,7 @@ export function UniverseProvider({
     getSpotlight,
     frozen: frozen || phase !== 'home',
     enterWorld,
+    takeAnchor,
     exitWorld,
     startTour,
     endTour,

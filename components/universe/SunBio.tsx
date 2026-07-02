@@ -69,6 +69,28 @@ export function SunBio() {
 
             <p className="mt-5 text-sm leading-relaxed text-slate-300">{aboutContent.intro}</p>
 
+            {/* the road here + life beyond the code */}
+            <div className="mt-5 space-y-2.5 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+              <p className="flex items-start gap-2 text-sm leading-relaxed text-slate-300">
+                <span aria-hidden className="mt-0.5">🧭</span>
+                <span>
+                  Started deep in <strong className="text-amber-200">200+ Web3 projects</strong> —
+                  systems thinking &amp; experimentation discipline — then moved to building
+                  practical products people use every day.
+                </span>
+              </p>
+              <div className="flex flex-wrap gap-2 pt-1">
+                {['📚 reading', '✈️ traveling', '💪 calisthenics', '🎬 films'].map((t) => (
+                  <span
+                    key={t}
+                    className="rounded-full border border-white/10 bg-white/5 px-3 py-1 font-mono text-[11px] text-slate-200"
+                  >
+                    {t}
+                  </span>
+                ))}
+              </div>
+            </div>
+
             {/* what I'm after */}
             <div className="mt-5 flex flex-wrap gap-2">
               {aboutMe.ambition.map((a) => (

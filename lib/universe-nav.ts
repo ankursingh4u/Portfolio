@@ -1,15 +1,43 @@
 import { siteConfig } from '@/lib/site-config'
 
 /**
- * The "Solar System OS" navigation model.
+ * The "Solar System OS" navigation model — v2.
  *
- * Each real planet (keyed by the `name` in lib/ephemeris.ts) is a destination.
- * Rule of the universe:
- *   • Big, slow, outer planets = the substance → full "worlds" you fly into.
- *   • Small, fast, inner planets = quick external links (social), ordered by
- *     usefulness (LinkedIn on the fastest planet, Instagram on the least).
+ * Every planet is a REAL destination now (socials are demoted to satellites of
+ * Neptune + the nav). Rule of the universe, sun-outward:
+ *
+ *   ☿ Mercury  — Now            (fastest planet = what's moving this month)
+ *   ♀ Venus    — The Story      (the journey + life beyond code)
+ *   🌍 Earth    — Flagships      (home world = my own products, my life's work)
+ *   ♂ Mars     — Client Systems (battle-tested, shipped for real businesses)
+ *   ♃ Jupiter  — Open Source    (biggest planet = the largest mass of code)
+ *   ♄ Saturn   — The Stack      (the rings = the toolbelt + how I work)
+ *   ⛢ Uranus   — Pricing        (clear, transparent engagement tiers)
+ *   ♆ Neptune  — Contact        (the deepest orbit — where journeys land)
+ *
+ * Moons are SUB-DESTINATIONS: '#anchor' targets scroll inside the parent
+ * world after landing; full URLs open externally.
  */
-export type DestId = 'work' | 'about' | 'pricing' | 'contact'
+export type DestId =
+  | 'now'
+  | 'story'
+  | 'flagships'
+  | 'clients'
+  | 'opensource'
+  | 'stack'
+  | 'pricing'
+  | 'contact'
+
+export interface MoonNav {
+  id: string
+  /** Shown on hover + used for the moon's aria-label. */
+  label: string
+  /** '#section-id' inside the parent world, or an external URL. */
+  target: string
+  tag?: string
+  /** Tint — makes multiple moons read as distinct, intentional satellites. */
+  color?: string
+}
 
 export interface PlanetNav {
   /** Must match the `name` in lib/ephemeris.ts PLANETS. */
@@ -27,29 +55,88 @@ export interface PlanetNav {
   blurb: string
   /** Tiny tagline shown on the hover label. */
   tag: string
+  /** Sub-destinations orbiting this planet. */
+  moons?: MoonNav[]
 }
 
 export const PLANET_NAV: Record<string, PlanetNav> = {
-  // ── Big, slow, outer planets → the real worlds ──────────────────────────
+  Mercury: {
+    name: 'Mercury',
+    label: 'Now',
+    kind: 'world',
+    destId: 'now',
+    accent: '#b8b2a8',
+    tag: 'this month · in motion',
+    blurb:
+      'The fastest planet — what I’m building, shipping and learning right now, updated as I move.',
+  },
+  Venus: {
+    name: 'Venus',
+    label: 'The Story',
+    kind: 'world',
+    destId: 'story',
+    accent: '#e8cda2',
+    tag: 'the journey · beyond code',
+    blurb:
+      'From 200+ Web3 projects to building real products — the journey, the discipline, and the life around the code.',
+    moons: [
+      { id: 'books', label: 'The Shelf', target: '#books', tag: 'reading' , color: '#e8cda2' },
+      { id: 'discipline', label: 'Discipline', target: '#discipline', tag: 'calisthenics' , color: '#9be3c0' },
+    ],
+  },
+  Earth: {
+    name: 'Earth',
+    label: 'Flagships',
+    kind: 'world',
+    destId: 'flagships',
+    accent: '#5b8def',
+    tag: 'my products · the life’s work',
+    blurb:
+      'Home world. The products I own end-to-end — SEO4AI, DemandRadar and Palm Insights — live and growing.',
+    moons: [
+      { id: 'seo4ai', label: 'SEO4AI', target: '#seo4ai', tag: 'AI share-of-voice' , color: '#5b8def' },
+      { id: 'demandradar', label: 'DemandRadar', target: '#demandradar', tag: 'Shopify app' , color: '#a855f7' },
+      { id: 'palm', label: 'Palm Insights', target: '#palm', tag: 'analytics' , color: '#34d399' },
+    ],
+  },
+  Mars: {
+    name: 'Mars',
+    label: 'Client Systems',
+    kind: 'world',
+    destId: 'clients',
+    accent: '#d96f43',
+    tag: 'real businesses · in production',
+    blurb:
+      'Battle-tested ground — paid systems for real businesses, every one live in production right now.',
+    moons: [
+      { id: 'saltys', label: "Salty's Seafood", target: '#saltys', tag: 'Australia' , color: '#f59e0b' },
+      { id: 'steelline', label: 'Steel Line Logistics', target: '#steelline', tag: 'India' , color: '#22d3ee' },
+      { id: 'draftinvitations', label: 'DraftInvitations', target: '#draftinvitations', tag: 'India' , color: '#ec4899' },
+    ],
+  },
   Jupiter: {
     name: 'Jupiter',
-    label: 'Work',
+    label: 'Open Source',
     kind: 'world',
-    destId: 'work',
+    destId: 'opensource',
     accent: '#d8a772',
-    tag: 'the things I’ve shipped',
+    tag: 'github · experiments · web3',
     blurb:
-      'The largest world — flagship products, paid client systems, and live open-source. The proof.',
+      'The giant — the largest mass of code. Live GitHub repos, experiments, and the Web3 research era.',
+    moons: [
+      { id: 'github', label: 'GitHub', target: siteConfig.social.github, tag: '@ankursingh4u' },
+      { id: 'web3', label: 'Web3 Era', target: '#web3', tag: '200+ projects' , color: '#d8a772' },
+    ],
   },
   Saturn: {
     name: 'Saturn',
-    label: 'About',
+    label: 'The Stack',
     kind: 'world',
-    destId: 'about',
+    destId: 'stack',
     accent: '#e3d2a0',
-    tag: 'who I am · the stack',
+    tag: 'skills · how I work',
     blurb:
-      'The ringed one. The story, the way I think, and the stack I build my universe with.',
+      'The ringed one — the toolbelt. Languages, frameworks, and the principles every build runs on.',
   },
   Uranus: {
     name: 'Uranus',
@@ -67,45 +154,14 @@ export const PLANET_NAV: Record<string, PlanetNav> = {
     destId: 'contact',
     accent: '#6f8ff0',
     tag: 'let’s build something',
-    blurb: 'The farthest world, and the most important — this is where we start working together.',
-  },
-
-  // ── Small inner planets → social links, least useful closest to the Sun ──
-  Mercury: {
-    name: 'Mercury',
-    label: 'Instagram ↗',
-    kind: 'link',
-    target: siteConfig.social.instagram,
-    accent: '#b8b2a8',
-    tag: 'life beyond code',
-    blurb: 'Closest to the sun, least essential — life beyond the keyboard.',
-  },
-  Venus: {
-    name: 'Venus',
-    label: 'LinkedIn ↗',
-    kind: 'link',
-    target: siteConfig.social.linkedin,
-    accent: '#e8cda2',
-    tag: 'connect with me',
-    blurb: 'Connect with me professionally.',
-  },
-  Earth: {
-    name: 'Earth',
-    label: 'X ↗',
-    kind: 'link',
-    target: siteConfig.social.X,
-    accent: '#5b8def',
-    tag: 'thoughts & build logs',
-    blurb: 'Home base for thoughts, build logs and the occasional hot take.',
-  },
-  Mars: {
-    name: 'Mars',
-    label: 'GitHub ↗',
-    kind: 'link',
-    target: siteConfig.social.github,
-    accent: '#d96f43',
-    tag: 'the code',
-    blurb: 'The code lives here — @ankursingh4u.',
+    blurb:
+      'The farthest world, and the most important — this is where we start working together. My satellites orbit here.',
+    moons: [
+      { id: 'github-sat', label: 'GitHub ↗', target: siteConfig.social.github, tag: 'satellite' },
+      { id: 'linkedin-sat', label: 'LinkedIn ↗', target: siteConfig.social.linkedin, tag: 'satellite' },
+      { id: 'x-sat', label: 'X ↗', target: siteConfig.social.X, tag: 'satellite' },
+      { id: 'insta-sat', label: 'Instagram ↗', target: siteConfig.social.instagram, tag: 'satellite' },
+    ],
   },
 }
 

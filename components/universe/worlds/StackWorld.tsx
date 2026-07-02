@@ -1,6 +1,6 @@
 'use client'
 
-import { aboutContent, techStack } from '@/lib/site-config'
+import { techStack } from '@/lib/site-config'
 import { aboutMe } from '@/lib/about-me'
 import type { PlanetNav } from '@/lib/universe-nav'
 import { PlanetWorld, GlassCard } from '../PlanetWorld'
@@ -13,34 +13,39 @@ const stackGroups: { label: string; items: string[] }[] = [
   { label: 'learning', items: techStack.learning },
 ]
 
-export function AboutWorld({ nav }: { nav: PlanetNav }) {
+export function StackWorld({ nav }: { nav: PlanetNav }) {
   return (
     <PlanetWorld
       nav={nav}
-      eyebrow="Saturn · about"
-      title="The story behind the system"
-      intro={aboutContent.intro}
+      eyebrow="Saturn · the rings"
+      title="The toolbelt & the operating system"
+      intro="Saturn's rings are made of a thousand small pieces moving in formation — same as a stack. These are the tools, and the principles they run on."
     >
-      {/* Narrative */}
-      <div className="grid gap-5 md:grid-cols-3">
-        {[
-          { label: 'the journey', text: aboutContent.journey },
-          { label: 'the approach', text: aboutContent.approach },
-          { label: 'right now', text: aboutContent.current },
-        ].map((b) => (
-          <GlassCard key={b.label} accent={nav.accent}>
+      {/* ── The stack ── */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {stackGroups.map((g) => (
+          <GlassCard key={g.label} accent={nav.accent}>
             <p className="font-mono text-[11px] uppercase tracking-widest" style={{ color: nav.accent }}>
-              {b.label}
+              {g.label}
             </p>
-            <p className="mt-3 text-sm leading-relaxed text-slate-300">{b.text}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {g.items.map((t) => (
+                <span
+                  key={t}
+                  className="rounded-md border border-white/10 bg-white/5 px-2.5 py-1 font-mono text-xs text-slate-200"
+                >
+                  {t}
+                </span>
+              ))}
+            </div>
           </GlassCard>
         ))}
       </div>
 
-      {/* How I think */}
+      {/* ── How I'm wired ── */}
       <h2 className="mt-12 text-xl font-bold text-white">How I’m wired</h2>
       <div className="mt-4 grid gap-5 md:grid-cols-2">
-        <GlassCard>
+        <GlassCard accent={nav.accent}>
           <div className="flex flex-wrap gap-2">
             {aboutMe.strengths.map((s) => (
               <span
@@ -59,7 +64,7 @@ export function AboutWorld({ nav }: { nav: PlanetNav }) {
             ))}
           </ul>
         </GlassCard>
-        <GlassCard>
+        <GlassCard accent={nav.accent}>
           <p className="font-mono text-[11px] uppercase tracking-widest text-slate-400">core loop</p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {aboutMe.corePattern.map((step, i) => (
@@ -67,38 +72,11 @@ export function AboutWorld({ nav }: { nav: PlanetNav }) {
                 <span className="rounded-md bg-white/5 px-2.5 py-1 font-mono text-xs text-slate-200">
                   {step}
                 </span>
-                {i < aboutMe.corePattern.length - 1 && (
-                  <span style={{ color: nav.accent }}>→</span>
-                )}
+                {i < aboutMe.corePattern.length - 1 && <span style={{ color: nav.accent }}>→</span>}
               </span>
             ))}
           </div>
-          <p className="mt-5 font-mono text-[11px] uppercase tracking-widest text-slate-400">after</p>
-          <p className="mt-2 text-sm leading-relaxed text-slate-300">{aboutMe.ambitionLine}</p>
-          <p className="mt-4 text-sm italic text-slate-400">{aboutContent.beyond}</p>
         </GlassCard>
-      </div>
-
-      {/* The stack */}
-      <h2 className="mt-12 text-xl font-bold text-white">The stack I build with</h2>
-      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {stackGroups.map((g) => (
-          <GlassCard key={g.label}>
-            <p className="font-mono text-[11px] uppercase tracking-widest" style={{ color: nav.accent }}>
-              {g.label}
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {g.items.map((t) => (
-                <span
-                  key={t}
-                  className="rounded-md border border-white/10 bg-white/5 px-2.5 py-1 font-mono text-xs text-slate-200"
-                >
-                  {t}
-                </span>
-              ))}
-            </div>
-          </GlassCard>
-        ))}
       </div>
     </PlanetWorld>
   )

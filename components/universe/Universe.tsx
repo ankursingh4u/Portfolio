@@ -2,7 +2,7 @@
 
 import { useReducedMotion } from 'framer-motion'
 import { UniverseProvider } from '@/lib/hooks/useUniverse'
-import { SolarStage } from './SolarStage'
+import { SolarStage3D } from './SolarStage3D'
 import { HeroOverlay } from './HeroOverlay'
 import { SpaceNav } from './SpaceNav'
 import { WarpField } from './WarpField'
@@ -17,7 +17,7 @@ export function Universe() {
   return (
     <UniverseProvider reduce={reduce}>
       <main className="relative h-screen w-screen overflow-hidden">
-        <SolarStage />
+        <SolarStage3D />
         <SpaceNav />
         <HeroOverlay />
         <Tour />

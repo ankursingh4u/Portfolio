@@ -6,9 +6,14 @@ import { WORLDS, navByDest, type PlanetNav } from '@/lib/universe-nav'
 import { useUniverse } from '@/lib/hooks/useUniverse'
 import { InfoWidget } from '@/components/ui/InfoWidget'
 
-const ORDER: { label: string; dest: 'about' | 'work' | 'pricing' | 'contact' }[] = [
-  { label: 'about', dest: 'about' },
-  { label: 'work', dest: 'work' },
+import type { DestId } from '@/lib/universe-nav'
+
+const ORDER: { label: string; dest: DestId }[] = [
+  { label: 'story', dest: 'story' },
+  { label: 'flagships', dest: 'flagships' },
+  { label: 'clients', dest: 'clients' },
+  { label: 'open_source', dest: 'opensource' },
+  { label: 'stack', dest: 'stack' },
   { label: 'pricing', dest: 'pricing' },
   { label: 'contact', dest: 'contact' },
 ]
