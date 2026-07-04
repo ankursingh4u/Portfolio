@@ -19,7 +19,7 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { useReducedMotion } from 'framer-motion'
 import { PLANETS, positionFor } from '@/lib/ephemeris'
-import { PLANET_NAV, type PlanetNav } from '@/lib/universe-nav'
+import { PLANET_NAV, SUN_NAV, type PlanetNav } from '@/lib/universe-nav'
 import { PLANET_TEXTURE_1K, PLANET_TEXTURE_2K } from '@/lib/planet-textures'
 import { useUniverse } from '@/lib/hooks/useUniverse'
 
@@ -33,9 +33,14 @@ const omegaFor = (a: number) => TWO_PI / (INNER_PERIOD_SEC * Math.pow(a / aMin, 
 
 const easeInOutCubic = (u: number) =>
   u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2
+const easeOutCubic = (u: number) => 1 - Math.pow(1 - u, 3)
+const easeInCubic = (u: number) => u * u * u
 // One tour hop: rise OVER the system in an arc, sweep sideways, descend onto
 // the next planet. Scripted (deterministic), so it can never wobble.
 const TOUR_FLY_MS = 1900
+// Click-to-enter: fly one full lap around the body, then spiral in. A touch
+// longer than WARP_IN_MS so the final descent lands under the page's fade-in.
+const DIVE_MS = 1750
 
 // Evenly-spaced orbit radii (world units) — readable, never overlapping.
 const ORBIT_A = PLANETS.map((_, i) => 26 + i * 13)
@@ -174,7 +179,6 @@ export function SolarStage3D() {
 
   const {
     enterWorld,
-    openBio,
     registerPlanet,
     setSpotlight,
     tourActive,
@@ -182,26 +186,51 @@ export function SolarStage3D() {
     frozen,
     phase,
     active,
+    paused,
+    recenterKey,
   } = useUniverse()
 
   // The render loop reads live state through refs (never re-creates the scene).
   const tourRef = useRef({ active: false, index: 0 })
   const frozenRef = useRef(false)
   const reduceRef = useRef(false)
+  const pausedRef = useRef(false)
+  const recenterRef = useRef(false)
   const enterWorldRef = useRef(enterWorld)
-  const openBioRef = useRef(openBio)
   useEffect(() => {
     tourRef.current = { active: tourActive, index: tourIndex }
   }, [tourActive, tourIndex])
   useEffect(() => {
     frozenRef.current = frozen
   }, [frozen])
+  useEffect(() => {
+    pausedRef.current = paused
+  }, [paused])
+  // Each recenter tap flags the loop to glide back to the sun overview.
+  useEffect(() => {
+    if (recenterKey > 0) recenterRef.current = true
+  }, [recenterKey])
   // Warp choreography: entering a world DIVES the camera into that planet in
   // sync with the warp overlay; exiting restores a comfortable distance.
   const warpRef = useRef<{ diving: string | null; restore: boolean }>({
     diving: null,
     restore: false,
   })
+  // Pause the heavy main render while an (opaque) world page covers the scene —
+  // the page has its own hero planet canvas. State keeps advancing so the
+  // system is alive the instant you return.
+  const worldOpenRef = useRef(false)
+  useEffect(() => {
+    if (phase === 'world') {
+      // Keep rendering through the page's fade-in so the planet stays alive
+      // behind it (a live crossfade, not a freeze), THEN pause to save GPU.
+      const id = setTimeout(() => {
+        worldOpenRef.current = true
+      }, 900)
+      return () => clearTimeout(id)
+    }
+    worldOpenRef.current = false
+  }, [phase])
   useEffect(() => {
     if (phase === 'warping-in' && active) {
       warpRef.current.diving = active.name
@@ -215,8 +244,7 @@ export function SolarStage3D() {
   }, [reduce])
   useEffect(() => {
     enterWorldRef.current = enterWorld
-    openBioRef.current = openBio
-  }, [enterWorld, openBio])
+  }, [enterWorld])
 
   useEffect(() => {
     const host = hostRef.current
@@ -241,21 +269,31 @@ export function SolarStage3D() {
     )
     camera.position.set(0, 62, 135)
 
-    // ── OrbitControls — the ONLY thing mouse input moves ─────────────────
+    // ── OrbitControls — free exploration (orbit · zoom-to-cursor · pan) ───
     const controls = new OrbitControls(camera, renderer.domElement)
-    controls.target.set(0, 0, 0) // locked on the sun
+    controls.target.set(0, 0, 0) // starts on the sun; the user can move it
     controls.enableDamping = true
-    controls.dampingFactor = 0.05
+    controls.dampingFactor = 0.06
     controls.enableZoom = true
-    controls.zoomSpeed = 0.5
-    controls.rotateSpeed = 0.3
-    controls.minDistance = 20
-    controls.maxDistance = 800
-    controls.enablePan = false // the sun stays centred — orbit + zoom only
+    controls.zoomToCursor = true // zoom toward the cursor / pinch point, NOT the sun
+    controls.zoomSpeed = 0.9
+    controls.rotateSpeed = 0.45
+    // Wide-open limits → no invisible wall. Get right onto a planet, or pull
+    // way out past the whole system. (Camera far plane is 5000.)
+    controls.minDistance = 2
+    controls.maxDistance = 3000
+    controls.enablePan = true
+    controls.screenSpacePanning = true
+    controls.panSpeed = 0.7
+    // Right-drag pans on desktop (mouseButtons default RIGHT = PAN).
+    // Touch: one finger orbits, two fingers pinch-zoom + pan (true free-fly).
+    controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }
 
     // ── Static universe: starfield + milky way live on the SCENE ─────────
     const stars = makeStarfield(5000, 900, 2000, 0.7 * 3) // size in world units
     scene.add(stars)
+    const starMat = stars.material as THREE.PointsMaterial
+    const STAR_SIZE = starMat.size
     const milky = makeMilkyWay(2600, 1500)
     scene.add(milky)
 
@@ -380,8 +418,6 @@ export function SolarStage3D() {
     let hovered: THREE.Mesh | null = null
     let downX = 0
     let downY = 0
-    // Camera focus: -1 = the sun; 0..7 = riding alongside that planet.
-    let focusIdx = -1
 
     const pickAt = (clientX: number, clientY: number): THREE.Mesh | null => {
       const rect = renderer.domElement.getBoundingClientRect()
@@ -393,43 +429,8 @@ export function SolarStage3D() {
     }
     const pick = (e: PointerEvent) => pickAt(e.clientX, e.clientY)
 
-    /** Planet whose projected screen position is nearest the cursor (px). */
-    const nearestPlanetOnScreen = (clientX: number, clientY: number, maxPx: number) => {
-      const rect = renderer.domElement.getBoundingClientRect()
-      let best = -1
-      let bestD = maxPx
-      const pv = new THREE.Vector3()
-      for (let i = 0; i < planetGroups.length; i++) {
-        pv.copy(planetGroups[i].position).project(camera)
-        if (pv.z > 1) continue // behind the camera
-        const sx = (pv.x * 0.5 + 0.5) * rect.width + rect.left
-        const sy = (-pv.y * 0.5 + 0.5) * rect.height + rect.top
-        const d = Math.hypot(sx - clientX, sy - clientY)
-        if (d < bestD) {
-          bestD = d
-          best = i
-        }
-      }
-      return best
-    }
-
-    // Zooming IN while aiming at (or near) a planet locks the camera onto it —
-    // the target rides the planet, so you dolly toward THAT world, not the sun.
-    // Zooming far back out hands focus back to the sun automatically.
-    const onWheel = (e: WheelEvent) => {
-      if (tourRef.current.active || frozenRef.current) return
-      if (e.deltaY < 0) {
-        const hit = pickAt(e.clientX, e.clientY)
-        if (hit && hit.userData.kind === 'planet') {
-          focusIdx = hit.userData.index as number
-        } else if (!hit) {
-          const near = nearestPlanetOnScreen(e.clientX, e.clientY, 70)
-          if (near >= 0) focusIdx = near
-        }
-        if (focusIdx >= 0) upgradeTexture(focusIdx)
-      }
-    }
-    renderer.domElement.addEventListener('wheel', onWheel, { passive: true })
+    // Free exploration: zoom-to-cursor + pan let the user approach any planet
+    // directly — no wheel-only focus hack (which never fired on touch anyway).
 
     const onPointerMove = (e: PointerEvent) => {
       const hit = pick(e)
@@ -451,13 +452,18 @@ export function SolarStage3D() {
       downX = e.clientX
       downY = e.clientY
     }
+    // Right-drag pans the whole system — suppress the browser context menu so
+    // the gesture isn't interrupted by a popup.
+    const onContextMenu = (e: Event) => e.preventDefault()
     const onPointerUp = (e: PointerEvent) => {
+      // Only the LEFT button travels; right/middle are camera controls (pan/dolly).
+      if (e.button !== 0) return
       // A real click, not the tail end of an orbit drag.
       if (Math.hypot(e.clientX - downX, e.clientY - downY) > 6) return
       const hit = pick(e)
       if (!hit) return
       if (hit.userData.kind === 'sun') {
-        openBioRef.current()
+        enterWorldRef.current(SUN_NAV) // the Sun is a world too → warp + land
         return
       }
       if (hit.userData.kind === 'nmoon') return // real moons: look, don't click
@@ -481,6 +487,7 @@ export function SolarStage3D() {
     renderer.domElement.addEventListener('pointermove', onPointerMove)
     renderer.domElement.addEventListener('pointerdown', onPointerDown)
     renderer.domElement.addEventListener('pointerup', onPointerUp)
+    renderer.domElement.addEventListener('contextmenu', onContextMenu)
     renderer.domElement.style.cursor = 'grab'
     renderer.domElement.style.touchAction = 'none'
 
@@ -505,6 +512,7 @@ export function SolarStage3D() {
     const desiredTarget = new THREE.Vector3()
     const camDir = new THREE.Vector3()
     const UP = new THREE.Vector3(0, 1, 0)
+    const SUN_ORIGIN = new THREE.Vector3(0, 0, 0)
     // Scripted tour-flight state (captured at each step change).
     let flyKey = -999
     let flyT0 = 0
@@ -512,13 +520,23 @@ export function SolarStage3D() {
     const flyDir0 = new THREE.Vector3(0, 0.5, 1)
     const flyTarget0 = new THREE.Vector3()
     const tmpTarget = new THREE.Vector3()
+    // Scripted click-to-enter dive state (captured when a dive begins).
+    let diveKey: string | null = null
+    let diveT0 = 0
+    let diveLen0 = 1
+    let diveAz0 = 0
+    let diveElev0 = 0
 
     const tick = () => {
       const now = performance.now()
       const dt = Math.min(0.05, (now - prev) / 1000)
       prev = now
 
-      if (!reduceRef.current && !frozenRef.current) t += dt
+      // Motion advances unless reduced-motion OR the user paused rotation.
+      // (It keeps running behind an open world page so the pages stay alive.)
+      const advancing = !reduceRef.current && !pausedRef.current
+      if (advancing) t += dt
+      const spinDt = advancing ? dt : 0
 
       // Planets orbit the sun; surfaces spin on their own axes.
       for (let i = 0; i < planetGroups.length; i++) {
@@ -528,7 +546,7 @@ export function SolarStage3D() {
           0,
           ORBIT_A[i] * Math.sin(th),
         )
-        planetMeshes[i].rotation.y += dt * (0.12 + i * 0.015)
+        planetMeshes[i].rotation.y += spinDt * (0.12 + i * 0.015)
 
         // Publish projected screen offsets (used by warp/tour overlays).
         v3.copy(planetGroups[i].position).project(camera)
@@ -546,18 +564,61 @@ export function SolarStage3D() {
       controls.enabled = !tour.active && !frozenRef.current && !warp.diving
       const k = 1 - Math.exp(-dt / 0.45)
       if (warp.diving) {
-        // Entering a world: DIVE into the planet in sync with the warp overlay.
+        // Entering a world: fly ONE smooth lap around the body, spiralling in,
+        // then swoop onto it. Scripted + time-parameterised (deterministic), so
+        // it never wobbles or stutters — and it tracks the still-orbiting planet.
         const idx = PLANETS.findIndex((p) => p.name === warp.diving)
-        if (idx >= 0) {
-          focusIdx = -1
-          const kf = 1 - Math.exp(-dt / 0.16)
-          controls.target.lerp(planetGroups[idx].position, kf)
-          camDir.copy(camera.position).sub(controls.target)
-          const len = camDir.length() || 1
-          camDir.multiplyScalar(1 / len)
+        // The Sun sits at the origin (radius ~8); planets ride their live orbits.
+        const planetPos = idx >= 0 ? planetGroups[idx].position : SUN_ORIGIN
+        const bodyR = idx >= 0 ? RADII[idx] : 8
+        // Let the camera get right up on the body — controls.update() clamps to
+        // minDistance every frame (even while disabled), so lower it for the dive.
+        controls.minDistance = 0.4
+
+        // New dive → capture the current camera offset as the lap's start pose.
+        if (warp.diving !== diveKey) {
+          diveKey = warp.diving
+          diveT0 = now
+          if (idx >= 0) upgradeTexture(idx) // crisp surface for the close pass
+          camDir.copy(camera.position).sub(planetPos)
+          diveLen0 = camDir.length() || 1
+          diveAz0 = Math.atan2(camDir.z, camDir.x)
+          diveElev0 = Math.asin(THREE.MathUtils.clamp(camDir.y / diveLen0, -1, 1))
+        }
+
+        if (reduceRef.current) {
+          // Reduced motion: no orbit — settle straight onto the body.
+          controls.target.copy(planetPos)
+          camDir.copy(camera.position).sub(planetPos)
+          camDir.normalize()
+          camera.position.copy(planetPos).addScaledVector(camDir, bodyR * 2.2)
+        } else {
+          const u = Math.min(1, (now - diveT0) / DIVE_MS)
+          // One full lap, eased: starts gently, sweeps around, settles.
+          const az = diveAz0 + easeInOutCubic(u) * TWO_PI
+          // Rise toward a slight top-down as we come around.
+          const elev = THREE.MathUtils.lerp(diveElev0, 0.3, easeOutCubic(u))
+          // Radius: ease out to an inspection ring, orbit, then swoop in at the end.
+          const inspectR = bodyR * 4.2
+          const closeR = bodyR * 1.9
+          const radius =
+            u < 0.62
+              ? THREE.MathUtils.lerp(diveLen0, inspectR, easeOutCubic(u / 0.62))
+              : THREE.MathUtils.lerp(inspectR, closeR, easeInCubic((u - 0.62) / 0.38))
+          const ce = Math.cos(elev)
+          controls.target.copy(planetPos)
           camera.position
-            .copy(controls.target)
-            .addScaledVector(camDir, THREE.MathUtils.lerp(len, RADII[idx] * 2.0, kf))
+            .copy(planetPos)
+            .addScaledVector(
+              camDir.set(ce * Math.cos(az), Math.sin(elev), ce * Math.sin(az)),
+              radius,
+            )
+          // Gentle lens punch on the final swoop for a sense of speed.
+          const fov = 55 + (u > 0.62 ? ((u - 0.62) / 0.38) * 10 : 0)
+          if (Math.abs(camera.fov - fov) > 0.05) {
+            camera.fov = fov
+            camera.updateProjectionMatrix()
+          }
         }
       } else if (tour.active) {
         let dist: number | null = null
@@ -595,6 +656,14 @@ export function SolarStage3D() {
         camDir.normalize()
         const len = THREE.MathUtils.lerp(flyLen0, dist!, e) * (1 + arc * 0.45)
         camera.position.copy(controls.target).addScaledVector(camDir, len)
+        // Speed cues mid-hop: the lens widens (FOV punch) and the stars swell —
+        // both settle to normal exactly as the camera arrives.
+        const fov = 55 + arc * 13
+        if (Math.abs(camera.fov - fov) > 0.05) {
+          camera.fov = fov
+          camera.updateProjectionMatrix()
+        }
+        starMat.size = STAR_SIZE * (1 + arc * 1.1)
 
         // Leader-line anchor for the Tour caption.
         if (tour.index >= 1 && tour.index <= PLANETS.length) {
@@ -614,29 +683,44 @@ export function SolarStage3D() {
       } else {
         setSpotlight(null)
         flyKey = -999
-        // Coming back from a world: glide out to a comfortable overview.
-        if (warp.restore) {
-          const d = controls.getDistance()
-          const nl = THREE.MathUtils.lerp(d, 135, k)
+        diveKey = null // a fresh dive re-captures its starting pose
+        // Settle the lens + stars back to normal after a tour.
+        if (camera.fov !== 55) {
+          camera.fov = THREE.MathUtils.lerp(camera.fov, 55, k)
+          if (Math.abs(camera.fov - 55) < 0.05) camera.fov = 55
+          camera.updateProjectionMatrix()
+        }
+        if (starMat.size !== STAR_SIZE) {
+          starMat.size = THREE.MathUtils.lerp(starMat.size, STAR_SIZE, k)
+          if (Math.abs(starMat.size - STAR_SIZE) < 0.02) starMat.size = STAR_SIZE
+        }
+        controls.minDistance = 2
+
+        // Returning from a world OR the user tapped recenter: glide the view
+        // back to a centred, comfortable overview of the whole system.
+        if (warp.restore || recenterRef.current) {
+          controls.target.lerp(SUN_ORIGIN, k)
+          const nl = THREE.MathUtils.lerp(controls.getDistance(), 135, k)
           camDir.copy(camera.position).sub(controls.target).normalize()
           camera.position.copy(controls.target).addScaledVector(camDir, nl)
-          if (Math.abs(nl - 135) < 4) warp.restore = false
+          if (Math.abs(nl - 135) < 4 && controls.target.lengthSq() < 6) {
+            warp.restore = false
+            recenterRef.current = false
+          }
         }
-        if (focusIdx >= 0) {
-          // Focused: the orbit pivot RIDES the planet — zoom dives at it, drag
-          // orbits around it, and it stays locked while it travels its orbit.
-          controls.target.lerp(planetGroups[focusIdx].position, k)
-          controls.minDistance = RADII[focusIdx] * 2.4
-          // Pull far enough back and focus returns to the sun.
-          if (controls.getDistance() > 180) focusIdx = -1
-        } else {
-          controls.minDistance = 20
-          controls.target.lerp(desiredTarget.set(0, 0, 0), k * 0.6)
+        // Otherwise the camera is entirely the user's — no snap-back to the sun.
+
+        // Crisp close-ups: upgrade a planet's texture once you get near it.
+        for (let i = 0; i < planetGroups.length; i++) {
+          if (!upgraded[i] && camera.position.distanceTo(planetGroups[i].position) < 42) {
+            upgradeTexture(i)
+          }
         }
       }
 
       controls.update() // every frame — damping needs it
-      renderer.render(scene, camera)
+      // Skip the heavy render while an opaque world page covers the scene.
+      if (!worldOpenRef.current) renderer.render(scene, camera)
 
       // Track the hovered body with the DOM label.
       const label = labelRef.current
@@ -668,10 +752,10 @@ export function SolarStage3D() {
     return () => {
       cancelAnimationFrame(raf)
       window.removeEventListener('resize', onResize)
-      renderer.domElement.removeEventListener('wheel', onWheel)
       renderer.domElement.removeEventListener('pointermove', onPointerMove)
       renderer.domElement.removeEventListener('pointerdown', onPointerDown)
       renderer.domElement.removeEventListener('pointerup', onPointerUp)
+      renderer.domElement.removeEventListener('contextmenu', onContextMenu)
       controls.dispose()
       disposables.forEach((d) => d.dispose())
       stars.geometry.dispose()
@@ -685,7 +769,7 @@ export function SolarStage3D() {
   }, [])
 
   return (
-    <div ref={hostRef} className="fixed inset-0 z-0 bg-[#02030a]">
+    <div ref={hostRef} aria-hidden="true" className="fixed inset-0 z-0 bg-[#02030a]">
       {/* Hover label — driven imperatively from the render loop. */}
       <div
         ref={labelRef}

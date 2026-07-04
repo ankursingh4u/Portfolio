@@ -5,9 +5,16 @@ import { motion } from 'framer-motion'
 import type { PlanetNav } from '@/lib/universe-nav'
 import { navByDest } from '@/lib/universe-nav'
 import { useUniverse } from '@/lib/hooks/useUniverse'
-import { PlanetWorld, GlassCard } from '../PlanetWorld'
+import { PlanetWorld, type WorldStat } from '../PlanetWorld'
+import { QuoteBuilder } from './QuoteBuilder'
 
 type Currency = 'USD' | 'INR'
+
+const stats: WorldStat[] = [
+  { value: '3', label: 'clear tiers' },
+  { value: '5', label: 'day min build' },
+  { value: '0', label: 'hidden fees' },
+]
 
 const plans = [
   {
@@ -100,6 +107,7 @@ export function PricingWorld({ nav }: { nav: PlanetNav }) {
       eyebrow="Uranus · pricing"
       title="Transparent & fair"
       intro="Project estimates, not hourly mystery. Pick a starting point — the exact quote comes after a quick discovery call."
+      stats={stats}
     >
       {/* Currency toggle */}
       <div className="mb-8 flex items-center gap-3">
@@ -121,10 +129,14 @@ export function PricingWorld({ nav }: { nav: PlanetNav }) {
 
       {/* Plans */}
       <div className="grid items-stretch gap-5 md:grid-cols-3">
-        {plans.map((plan) => (
-          <div
+        {plans.map((plan, i) => (
+          <motion.div
             key={plan.id}
-            className={`relative flex flex-col rounded-2xl border p-6 backdrop-blur-xl ${
+            initial={{ opacity: 0, x: i === 0 ? -40 : i === 2 ? 40 : 0, y: i === 1 ? 40 : 12 }}
+            whileInView={{ opacity: 1, x: 0, y: 0 }}
+            viewport={{ once: true, margin: '-60px' }}
+            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: i * 0.08 }}
+            className={`relative flex flex-col rounded-2xl border p-6 ${
               plan.highlight
                 ? 'border-white/30 bg-white/[0.07]'
                 : 'border-white/10 bg-white/[0.04]'
@@ -176,30 +188,24 @@ export function PricingWorld({ nav }: { nav: PlanetNav }) {
             >
               Start a project →
             </button>
-          </div>
+          </motion.div>
         ))}
       </div>
 
-      {/* Add-ons */}
-      <h2 className="mt-12 text-xl font-bold text-white">Add-ons — extend any plan</h2>
-      <GlassCard className="mt-4">
-        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-          {addons.map((a) => (
-            <div
-              key={a.label}
-              className="flex items-center justify-between rounded-lg border border-white/5 bg-white/[0.03] px-3 py-2.5"
-            >
-              <span className="font-mono text-xs text-slate-300">{a.label}</span>
-              <span className="font-mono text-xs" style={{ color: nav.accent }}>
-                {currency === 'USD' ? `+$${a.usd}` : `+₹${a.inr.toLocaleString()}`}
-              </span>
-            </div>
-          ))}
-        </div>
-      </GlassCard>
-      <p className="mt-6 text-center font-mono text-xs text-slate-500">
-        all prices are project estimates · exact quote after a brief discovery call
+      {/* ── Signature: build your estimate ── */}
+      <h2 className="mt-14 text-xl font-bold text-white">Build your estimate</h2>
+      <p className="mt-1 text-sm text-slate-400">
+        Pick a tier, toggle what you need — the total updates live.
       </p>
+      <div className="mt-5">
+        <QuoteBuilder
+          plans={plans}
+          addons={addons}
+          currency={currency}
+          accent={nav.accent}
+          onStart={() => contact && enterWorld(contact)}
+        />
+      </div>
     </PlanetWorld>
   )
 }

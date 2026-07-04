@@ -3,7 +3,14 @@
 import { useEffect, useState } from 'react'
 import { aboutContent, personalProjects, siteConfig } from '@/lib/site-config'
 import type { PlanetNav } from '@/lib/universe-nav'
-import { PlanetWorld, GlassCard } from '../PlanetWorld'
+import { PlanetWorld, GlassCard, WorldSection, type WorldStat } from '../PlanetWorld'
+import { ContributionHeatmap } from './ContributionHeatmap'
+
+const stats: WorldStat[] = [
+  { value: '200+', label: 'web3 projects' },
+  { value: '12', label: 'live repos' },
+  { value: '5', label: 'years shipping OSS' },
+]
 
 interface Repo {
   name: string
@@ -39,9 +46,20 @@ export function OpenSourceWorld({ nav }: { nav: PlanetNav }) {
       eyebrow="Jupiter · the giant"
       title="The largest mass of code"
       intro="Open source, experiments, and the era that forged the systems thinking — 200+ Web3 projects deep. The biggest planet holds the most gravity."
+      stats={stats}
     >
+      {/* ── Signature: a year of contributions ── */}
+      <WorldSection
+        kicker="the mass of code"
+        title="A year in the giant's gravity"
+        subtitle="Every square is a day of shipping — the biggest planet holds the most."
+        accent={nav.accent}
+      >
+        <ContributionHeatmap accent={nav.accent} />
+      </WorldSection>
+
       {/* ── Live from GitHub ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="mt-16 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold text-white">Live from GitHub</h2>
           <p className="mt-1 text-sm text-slate-400">
@@ -122,9 +140,8 @@ export function OpenSourceWorld({ nav }: { nav: PlanetNav }) {
 
           {/* Case-study slots — filled as they're written */}
           <div className="mt-6 grid gap-4 md:grid-cols-3">
-            {['Systems thinking at scale', 'Experimentation discipline', 'Decentralised ecosystems'].map(
-              (t) => (
-                <GlassCard key={t} accent={nav.accent}>
+            {['Systems thinking at scale', 'Experimentation discipline', 'Decentralised ecosystems'].map((t, i) => (
+                <GlassCard key={t} accent={nav.accent} index={i}>
                   <p className="font-mono text-[10px] uppercase tracking-widest text-slate-500">
                     case study
                   </p>

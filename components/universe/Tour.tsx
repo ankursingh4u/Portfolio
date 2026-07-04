@@ -6,21 +6,33 @@ import { siteConfig } from '@/lib/site-config'
 import { navByDest } from '@/lib/universe-nav'
 import { useUniverse } from '@/lib/hooks/useUniverse'
 
-const EASE = [0.16, 1, 0.3, 1] as const
-
-/** Where the caption card is anchored on screen + where its leader line lands. */
-interface Anchor {
-  cardX: number
-  cardTop: number
-  joinX: number
-  joinY: number
-  targetX: number
-  targetY: number
-  targetR: number
+interface Lock {
+  x: number
+  y: number
+  r: number
 }
 
-const GAP = 30 // breathing room between the planet edge and the card
-const CARD_W = 'min(92vw, 30rem)'
+/** Types a string out character-by-character; instant under reduced motion. */
+function useTypewriter(text: string, active: boolean, cps = 55) {
+  const reduce = useReducedMotion()
+  const [out, setOut] = useState('')
+  useEffect(() => {
+    if (!active) return
+    if (reduce) {
+      setOut(text)
+      return
+    }
+    setOut('')
+    let i = 0
+    const id = setInterval(() => {
+      i++
+      setOut(text.slice(0, i))
+      if (i >= text.length) clearInterval(id)
+    }, 1000 / cps)
+    return () => clearInterval(id)
+  }, [text, active, reduce, cps])
+  return out
+}
 
 export function Tour() {
   const reduce = useReducedMotion()
@@ -37,53 +49,27 @@ export function Tour() {
     getSpotlight,
   } = useUniverse()
 
-  const cardRef = useRef<HTMLDivElement>(null)
-  const [anchor, setAnchor] = useState<Anchor | null>(null)
-
+  const [lock, setLock] = useState<Lock | null>(null)
   const isPlanet = tourStep?.kind === 'planet'
 
-  // Track the spotlighted planet's live screen position and place the caption
-  // beside it with an accurate leader line.
+  // Track the spotlighted planet's live screen position for the reticle.
   useEffect(() => {
     if (!tourActive || !isPlanet) {
-      setAnchor(null)
+      setLock(null)
       return
     }
     let raf = 0
     const tick = () => {
       const s = getSpotlight()
       if (s) {
-        const vw = window.innerWidth
-        const vh = window.innerHeight
-        const cardH = cardRef.current?.offsetHeight ?? 220
-        const halfW = Math.min(vw * 0.92, 480) / 2
-        const cardX = Math.max(halfW + 14, Math.min(vw - halfW - 14, s.x))
-        const belowTop = s.y + s.r + GAP
-        const fitsBelow = belowTop + cardH + 96 <= vh
-        const cardTop = fitsBelow ? belowTop : s.y - s.r - GAP - cardH
-        const joinY = fitsBelow ? cardTop : cardTop + cardH
-
-        setAnchor((prev) => {
-          const next: Anchor = {
-            cardX,
-            cardTop,
-            joinX: cardX,
-            joinY,
-            targetX: s.x,
-            targetY: s.y,
-            targetR: s.r,
-          }
-          if (
-            prev &&
-            Math.abs(prev.cardX - next.cardX) < 0.5 &&
-            Math.abs(prev.cardTop - next.cardTop) < 0.5 &&
-            Math.abs(prev.targetX - next.targetX) < 0.5 &&
-            Math.abs(prev.targetY - next.targetY) < 0.5
-          ) {
-            return prev
-          }
-          return next
-        })
+        setLock((prev) =>
+          prev &&
+          Math.abs(prev.x - s.x) < 0.5 &&
+          Math.abs(prev.y - s.y) < 0.5 &&
+          Math.abs(prev.r - s.r) < 0.5
+            ? prev
+            : { x: s.x, y: s.y, r: s.r },
+        )
       }
       raf = requestAnimationFrame(tick)
     }
@@ -91,296 +77,333 @@ export function Tour() {
     return () => cancelAnimationFrame(raf)
   }, [tourActive, isPlanet, tourIndex, getSpotlight])
 
+  const stepKey = tourStep?.kind === 'planet' ? tourStep.nav.name : tourStep?.kind ?? ''
+  const contact = navByDest('contact')
+  const totalSteps = tourCount + 2
+  const accent =
+    tourStep?.kind === 'planet'
+      ? tourStep.nav.accent
+      : tourStep?.kind === 'finale'
+        ? '#34d399'
+        : '#f5b73b'
+
+  // Readout copy for the terminal panel.
+  const readout =
+    tourStep?.kind === 'planet'
+      ? {
+          body: tourStep.nav.name.toUpperCase(),
+          system: `${tourStep.nav.label.replace(' ↗', '').toUpperCase()}.sys`,
+          desig: tourStep.nav.tag,
+          desc: tourStep.nav.blurb,
+        }
+      : tourStep?.kind === 'sun'
+        ? {
+            body: 'SOL // SYSTEM CORE',
+            system: `${siteConfig.name.toUpperCase()}.sys`,
+            desig: 'the centre of it all',
+            desc: 'Everything in this system orbits the work. Initiating guided flight — one world at a time.',
+          }
+        : {
+            body: 'FLIGHT COMPLETE',
+            system: 'ALL WORLDS.mapped',
+            desig: 'navigation log saved',
+            desc: 'You have seen my cosmos. Take the controls yourself — or set course for working together.',
+          }
+
+  const typed = useTypewriter(readout.desc, tourActive, 60)
+
   if (!tourActive || !tourStep) return null
 
-  const stepKey = tourStep.kind === 'planet' ? tourStep.nav.name : tourStep.kind
-  const contact = navByDest('contact')
-  const accent =
-    tourStep.kind === 'planet'
-      ? tourStep.nav.accent
-      : tourStep.kind === 'sun'
-        ? '#f5b73b'
-        : '#8b7cf6'
-  const totalSteps = tourCount + 2
-  const stepNo = String(tourIndex + 1).padStart(2, '0')
-
-  // Staggered content reveal inside each card.
-  const stagger = {
-    hidden: {},
-    show: { transition: { staggerChildren: reduce ? 0 : 0.07, delayChildren: reduce ? 0 : 0.12 } },
-  }
-  const item = {
-    hidden: reduce ? {} : { opacity: 0, y: 14 },
-    show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: EASE } },
-  }
-
-  const chip = (text: string) => (
-    <motion.div variants={item} className="flex items-center justify-center gap-2.5">
-      <span
-        className="rounded-full border px-2.5 py-0.5 font-mono text-[10px] tracking-widest"
-        style={{ borderColor: `${accent}55`, color: accent, background: `${accent}14` }}
-      >
-        {stepNo} / {String(totalSteps).padStart(2, '0')}
-      </span>
-      <span className="font-mono text-xs uppercase tracking-[0.25em]" style={{ color: accent }}>
-        {text}
-      </span>
-    </motion.div>
-  )
-
-  const cardInner = (
-    <AnimatePresence mode="wait">
-      <motion.div
-        key={stepKey}
-        initial={
-          reduce
-            ? { opacity: 0 }
-            : { opacity: 0, y: 26, scale: 0.94, filter: 'blur(8px)' }
-        }
-        animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
-        exit={
-          reduce ? { opacity: 0 } : { opacity: 0, y: -18, scale: 0.97, filter: 'blur(6px)' }
-        }
-        transition={{ duration: reduce ? 0 : 0.55, ease: EASE }}
-        className="pointer-events-auto relative overflow-hidden rounded-2xl border bg-[#070c1a]/95 p-6 text-center"
-        style={{
-          borderColor: `${accent}3a`,
-          boxShadow: `0 24px 70px -20px rgba(0,0,0,0.9), 0 0 70px -28px ${accent}88, inset 0 1px 0 0 ${accent}2e`,
-        }}
-      >
-        {/* accent beam + faint orbit decorations */}
-        <span
-          aria-hidden
-          className="absolute inset-x-10 top-0 h-px"
-          style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)` }}
-        />
-        <span
-          aria-hidden
-          className="pointer-events-none absolute -right-12 -top-12 h-36 w-36 rounded-full border"
-          style={{ borderColor: `${accent}1f` }}
-        />
-        <span
-          aria-hidden
-          className="pointer-events-none absolute -bottom-16 -left-16 h-44 w-44 rounded-full border"
-          style={{ borderColor: `${accent}14` }}
-        />
-
-        <motion.div variants={stagger} initial="hidden" animate="show" className="relative">
-          {tourStep.kind === 'sun' && (
-            <>
-              {chip('the sun · start here')}
-              <motion.h2 variants={item} className="mt-3 text-2xl font-bold text-white md:text-3xl">
-                This is {siteConfig.name}
-              </motion.h2>
-              <motion.p variants={item} className="mt-3 text-sm leading-relaxed text-slate-300">
-                At the centre of it all. Everything in this system orbits the work — let me fly
-                you through each world, one planet at a time.
-              </motion.p>
-            </>
-          )}
-
-          {tourStep.kind === 'planet' && (
-            <>
-              {chip(tourStep.nav.name)}
-              <motion.h2 variants={item} className="mt-3 text-2xl font-bold text-white md:text-3xl">
-                {tourStep.nav.label.replace(' ↗', '')}
-              </motion.h2>
-              <motion.p variants={item} className="mt-3 text-sm leading-relaxed text-slate-300">
-                {tourStep.nav.blurb}
-              </motion.p>
-              <motion.div variants={item}>
-                {tourStep.nav.kind === 'world' ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const nav = tourStep.nav
-                      endTour()
-                      setTimeout(() => enterWorld(nav), reduce ? 0 : 120)
-                    }}
-                    className="mt-5 inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold text-[#05070f] transition-transform hover:scale-[1.04]"
-                    style={{ background: accent, boxShadow: `0 8px 30px -8px ${accent}aa` }}
-                  >
-                    Land on this world →
-                  </button>
-                ) : (
-                  <a
-                    href={tourStep.nav.target}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-5 inline-flex items-center gap-2 rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-white hover:bg-white/10"
-                  >
-                    Open {tourStep.nav.label}
-                  </a>
-                )}
-              </motion.div>
-            </>
-          )}
-
-          {tourStep.kind === 'finale' && (
-            <>
-              {chip('tour complete')}
-              <motion.h2 variants={item} className="mt-3 text-2xl font-bold text-white md:text-3xl">
-                You’ve seen my cosmos.
-              </motion.h2>
-              <motion.p variants={item} className="mt-3 text-sm leading-relaxed text-slate-300">
-                Now explore it yourself — grab the system, zoom into any world — or jump straight
-                to working together.
-              </motion.p>
-              <motion.div variants={item} className="mt-5 flex flex-wrap justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    endTour()
-                    if (contact) setTimeout(() => enterWorld(contact), reduce ? 0 : 120)
-                  }}
-                  className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 px-5 py-2 text-sm font-semibold text-white shadow-[0_8px_30px_-8px_rgba(139,124,246,0.7)] transition-transform hover:scale-[1.04]"
-                >
-                  Let’s talk →
-                </button>
-                <button
-                  type="button"
-                  onClick={endTour}
-                  className="rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
-                >
-                  Explore freely
-                </button>
-              </motion.div>
-            </>
-          )}
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
-  )
-
-  // Floating beside the planet only when we have a fresh anchor for THIS step.
-  const floating = isPlanet && !!anchor
+  const hudBtn =
+    'pointer-events-auto font-mono text-[11px] uppercase tracking-widest transition-all focus-visible:outline-none'
+  const reticleSize = lock ? Math.max(130, lock.r * 3.4) : 160
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-[55]">
-      {/* Skip / close */}
-      <div className="pointer-events-auto absolute right-0 top-0 p-5">
+    <div className="pointer-events-none fixed inset-0 z-[55] font-mono text-white">
+      {/* ── Cockpit frame ─────────────────────────────────────────────── */}
+      <div className="hud-scan pointer-events-none absolute inset-0" />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          boxShadow: `inset 0 0 200px 20px rgba(0,0,0,0.6), inset 0 0 60px 0 ${accent}22`,
+        }}
+      />
+      {/* corner brackets */}
+      {[
+        'left-4 top-16 border-l-2 border-t-2',
+        'right-4 top-16 border-r-2 border-t-2',
+        'left-4 bottom-4 border-l-2 border-b-2',
+        'right-4 bottom-4 border-r-2 border-b-2',
+      ].map((c) => (
+        <span
+          key={c}
+          aria-hidden
+          className={`pointer-events-none absolute h-7 w-7 ${c}`}
+          style={{ borderColor: `${accent}88` }}
+        />
+      ))}
+
+      {/* ── Top status bar ────────────────────────────────────────────── */}
+      <div className="absolute inset-x-0 top-0 flex items-center justify-between gap-3 px-5 py-3 md:px-8">
+        <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.25em]">
+          <motion.span
+            aria-hidden
+            className="inline-block h-2 w-2 rounded-full"
+            style={{ background: accent }}
+            animate={reduce ? {} : { opacity: [1, 0.3, 1] }}
+            transition={{ duration: 1.4, repeat: Infinity }}
+          />
+          <span style={{ color: accent }}>NAVICOM</span>
+          <span className="text-white/60">// guided flight</span>
+        </div>
+        <div className="hidden items-center gap-3 text-[11px] uppercase tracking-[0.2em] text-white/65 md:flex">
+          <span>
+            TARGET{' '}
+            <span className="text-white">
+              {String(tourIndex + 1).padStart(2, '0')}
+            </span>
+            /{String(totalSteps).padStart(2, '0')}
+          </span>
+        </div>
         <button
           type="button"
           onClick={endTour}
-          className="rounded-full border border-white/15 bg-black/70 px-4 py-2 font-mono text-xs text-white/80 transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+          className={`${hudBtn} rounded-sm border px-3 py-1.5 text-white/80 hover:bg-white/10`}
+          style={{ borderColor: `${accent}66` }}
         >
-          esc · skip tour ✕
+          esc // disengage ✕
         </button>
       </div>
 
-      {/* Leader line — energy flows from the card toward the planet. */}
-      {floating && anchor && (
-        <svg
-          aria-hidden="true"
-          className="pointer-events-none fixed inset-0 z-[54] h-full w-full"
-        >
-          <motion.line
-            key={stepKey}
-            initial={{ opacity: 0 }}
-            animate={{
-              opacity: 1,
-              strokeDashoffset: reduce ? 0 : [0, -14],
+      {/* ── Targeting reticle locked on the planet ────────────────────── */}
+      <AnimatePresence>
+        {isPlanet && lock && (
+          <motion.div
+            key={`ret-${stepKey}`}
+            className="pointer-events-none fixed"
+            style={{
+              left: lock.x,
+              top: lock.y,
+              width: reticleSize,
+              height: reticleSize,
+              marginLeft: -reticleSize / 2,
+              marginTop: -reticleSize / 2,
             }}
-            transition={{
-              opacity: { duration: 0.3 },
-              strokeDashoffset: { duration: 0.9, repeat: Infinity, ease: 'linear' },
-            }}
-            x1={anchor.joinX}
-            y1={anchor.joinY}
-            x2={anchor.targetX}
-            y2={anchor.targetY}
-            stroke={accent}
-            strokeWidth={1.5}
-            strokeDasharray="2 5"
-            strokeLinecap="round"
-          />
-          <motion.circle
-            key={`pulse-${stepKey}`}
-            cx={anchor.targetX}
-            cy={anchor.targetY}
-            fill="none"
-            stroke={accent}
-            strokeWidth={1}
-            initial={{ r: 4, opacity: 0.8 }}
-            animate={reduce ? { r: 9, opacity: 0.4 } : { r: [5, 14], opacity: [0.7, 0] }}
-            transition={reduce ? undefined : { duration: 1.6, repeat: Infinity, ease: 'easeOut' }}
-          />
-          <circle cx={anchor.targetX} cy={anchor.targetY} r={3.5} fill={accent} />
-          <circle cx={anchor.joinX} cy={anchor.joinY} r={2.5} fill={accent} />
-        </svg>
-      )}
+            initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 1.5, rotate: -8 }}
+            animate={{ opacity: 1, scale: 1, rotate: 0 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: reduce ? 0 : 0.45, ease: [0.16, 1, 0.3, 1] }}
+          >
+            {/* snapping corner brackets */}
+            {[
+              'left-0 top-0 border-l-2 border-t-2',
+              'right-0 top-0 border-r-2 border-t-2',
+              'left-0 bottom-0 border-l-2 border-b-2',
+              'right-0 bottom-0 border-r-2 border-b-2',
+            ].map((c) => (
+              <span
+                key={c}
+                className={`absolute h-6 w-6 ${c}`}
+                style={{ borderColor: accent }}
+              />
+            ))}
+            {/* rotating outer ring */}
+            <motion.span
+              aria-hidden
+              className="absolute inset-[14%] rounded-full border"
+              style={{ borderColor: `${accent}55`, borderTopColor: accent }}
+              animate={reduce ? {} : { rotate: 360 }}
+              transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
+            />
+            {/* crosshair ticks */}
+            <span className="absolute left-1/2 top-0 h-3 w-px -translate-x-1/2" style={{ background: accent }} />
+            <span className="absolute left-1/2 bottom-0 h-3 w-px -translate-x-1/2" style={{ background: accent }} />
+            <span className="absolute left-0 top-1/2 h-px w-3 -translate-y-1/2" style={{ background: accent }} />
+            <span className="absolute right-0 top-1/2 h-px w-3 -translate-y-1/2" style={{ background: accent }} />
+            {/* scan sweep */}
+            {!reduce && (
+              <motion.span
+                aria-hidden
+                className="absolute inset-x-[10%] h-px"
+                style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)` }}
+                initial={{ top: '12%', opacity: 0 }}
+                animate={{ top: ['12%', '88%', '12%'], opacity: [0, 1, 0] }}
+                transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+              />
+            )}
+            {/* lock label */}
+            <span
+              className="absolute -top-6 left-0 whitespace-nowrap text-[9px] uppercase tracking-[0.3em]"
+              style={{ color: accent }}
+            >
+              ◈ target locked
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Caption card — floats beside the planet, or centres for sun/finale */}
-      {floating && anchor ? (
-        <div
-          ref={cardRef}
-          className="fixed z-[56]"
-          style={{
-            left: anchor.cardX,
-            top: anchor.cardTop,
-            width: CARD_W,
-            transform: 'translateX(-50%)',
-          }}
-        >
-          {cardInner}
-        </div>
-      ) : (
-        <div className="pointer-events-none absolute inset-x-0 bottom-28 px-4 md:bottom-32">
-          <div ref={cardRef} className="mx-auto" style={{ width: CARD_W }}>
-            {cardInner}
-          </div>
-        </div>
-      )}
+      {/* ── Data readout terminal ─────────────────────────────────────── */}
+      <div className="absolute inset-x-0 bottom-0 px-4 pb-24 md:pb-20">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={`panel-${stepKey}`}
+            initial={reduce ? { opacity: 0 } : { opacity: 0, x: -24, filter: 'blur(6px)' }}
+            animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
+            exit={reduce ? { opacity: 0 } : { opacity: 0, x: 16, filter: 'blur(6px)' }}
+            transition={{ duration: reduce ? 0 : 0.4, ease: [0.16, 1, 0.3, 1] }}
+            className="pointer-events-auto relative mx-auto w-full max-w-md overflow-hidden rounded-sm border bg-[#03060f]/85 p-5 backdrop-blur-[2px]"
+            style={{ borderColor: `${accent}44`, boxShadow: `0 0 40px -12px ${accent}88, inset 0 0 30px -18px ${accent}` }}
+          >
+            {/* header strip */}
+            <div
+              className="mb-3 flex items-center justify-between border-b pb-2 text-[10px] uppercase tracking-[0.25em]"
+              style={{ borderColor: `${accent}33`, color: accent }}
+            >
+              <span>▸ scanning</span>
+              <span className="text-white/60">{readout.system}</span>
+            </div>
 
-      {/* Controls dock — pinned to the bottom edge */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#02030a] via-[#02030a]/70 to-transparent px-4 pb-6 pt-10">
-        <div className="mx-auto flex w-full max-w-xl items-center justify-between gap-4">
-          <div className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-white/10 bg-black/50 px-3 py-2 backdrop-blur-sm">
-            {Array.from({ length: totalSteps }, (_, i) => {
-              const active = tourIndex === i
-              return (
+            <p className="text-[10px] uppercase tracking-[0.25em] text-white/40">
+              celestial body
+            </p>
+            <h2 className="mt-0.5 text-2xl font-bold text-white md:text-3xl">
+              {readout.body}
+            </h2>
+            <p className="mt-1 text-xs" style={{ color: accent }}>
+              {readout.desig}
+            </p>
+
+            <p className="mt-3 min-h-[3.5rem] text-sm leading-relaxed text-slate-200">
+              {typed}
+              <motion.span
+                aria-hidden
+                className="ml-0.5 inline-block h-4 w-[7px] translate-y-0.5"
+                style={{ background: accent }}
+                animate={reduce ? {} : { opacity: [1, 0, 1] }}
+                transition={{ duration: 0.9, repeat: Infinity }}
+              />
+            </p>
+
+            {/* action row */}
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              {tourStep.kind === 'planet' && tourStep.nav.kind === 'world' && (
                 <button
-                  key={i}
                   type="button"
-                  onClick={() => tourGoTo(i)}
-                  aria-label={`Go to tour step ${i + 1}`}
-                  className="grid h-4 place-items-center focus-visible:outline-none"
+                  onClick={() => {
+                    const nav = tourStep.nav
+                    endTour()
+                    setTimeout(() => enterWorld(nav), reduce ? 0 : 120)
+                  }}
+                  className={`${hudBtn} rounded-sm px-4 py-2 font-semibold text-[#03060f] hover:brightness-110`}
+                  style={{ background: accent, boxShadow: `0 0 24px -6px ${accent}` }}
                 >
-                  <span
-                    className="block rounded-full transition-all duration-300"
-                    style={
-                      active
-                        ? { width: 18, height: 6, background: accent, boxShadow: `0 0 10px ${accent}aa` }
-                        : { width: 6, height: 6, background: 'rgba(255,255,255,0.28)' }
-                    }
-                  />
+                  ▸ engage landing
                 </button>
-              )
-            })}
-          </div>
+              )}
+              {tourStep.kind === 'planet' && tourStep.nav.kind === 'link' && (
+                <a
+                  href={tourStep.nav.target}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`${hudBtn} rounded-sm border px-4 py-2 hover:bg-white/10`}
+                  style={{ borderColor: `${accent}88`, color: accent }}
+                >
+                  ▸ open channel
+                </a>
+              )}
+              {tourStep.kind === 'finale' && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      endTour()
+                      if (contact) setTimeout(() => enterWorld(contact), reduce ? 0 : 120)
+                    }}
+                    className={`${hudBtn} rounded-sm px-4 py-2 font-semibold text-[#03060f] hover:brightness-110`}
+                    style={{ background: accent, boxShadow: `0 0 24px -6px ${accent}` }}
+                  >
+                    ▸ hail the pilot
+                  </button>
+                  <button
+                    type="button"
+                    onClick={endTour}
+                    className={`${hudBtn} rounded-sm border border-white/20 px-4 py-2 text-white/80 hover:bg-white/10`}
+                  >
+                    free flight
+                  </button>
+                </>
+              )}
+            </div>
+          </motion.div>
+        </AnimatePresence>
+      </div>
 
-          <div className="pointer-events-auto flex items-center gap-2">
+      {/* ── Flight controls dock ──────────────────────────────────────── */}
+      <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-4 px-5 py-4 md:px-8">
+        <div className="pointer-events-auto flex items-center gap-1.5">
+          {Array.from({ length: totalSteps }, (_, i) => {
+            const done = i < tourIndex
+            const active = i === tourIndex
+            return (
+              <button
+                key={i}
+                type="button"
+                onClick={() => tourGoTo(i)}
+                aria-label={`Jump to target ${i + 1}`}
+                className="grid h-5 place-items-center focus-visible:outline-none"
+              >
+                <span
+                  className="block transition-all duration-300"
+                  style={
+                    active
+                      ? { width: 20, height: 3, background: accent, boxShadow: `0 0 8px ${accent}` }
+                      : { width: 9, height: 3, background: done ? `${accent}88` : 'rgba(255,255,255,0.22)' }
+                  }
+                />
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="pointer-events-auto flex items-center gap-2">
+          <button
+            type="button"
+            onClick={tourPrev}
+            disabled={tourIndex === 0}
+            className={`${hudBtn} rounded-sm border border-white/15 bg-black/40 px-4 py-2 text-white/80 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30`}
+          >
+            ◂ prev
+          </button>
+          {tourIndex < totalSteps - 1 && (
             <button
               type="button"
-              onClick={tourPrev}
-              disabled={tourIndex === 0}
-              className="rounded-full border border-white/15 bg-black/60 px-4 py-2 font-mono text-xs text-white/80 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
+              onClick={tourNext}
+              className={`${hudBtn} rounded-sm px-4 py-2 font-semibold text-[#03060f] hover:brightness-110`}
+              style={{ background: accent, boxShadow: `0 0 20px -6px ${accent}` }}
             >
-              ← prev
+              next ▸
             </button>
-            {tourIndex < totalSteps - 1 && (
-              <button
-                type="button"
-                onClick={tourNext}
-                className="rounded-full px-4 py-2 font-mono text-xs font-semibold text-[#05070f] transition-transform hover:scale-[1.05]"
-                style={{ background: accent, boxShadow: `0 6px 24px -8px ${accent}aa` }}
-              >
-                next →
-              </button>
-            )}
-          </div>
+          )}
         </div>
       </div>
+
+      <style jsx>{`
+        .hud-scan {
+          background-image: repeating-linear-gradient(
+            0deg,
+            rgba(255, 255, 255, 0.03) 0px,
+            rgba(255, 255, 255, 0.03) 1px,
+            transparent 1px,
+            transparent 3px
+          );
+          mix-blend-mode: overlay;
+          opacity: 0.5;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .hud-scan { display: none; }
+        }
+      `}</style>
     </div>
   )
 }

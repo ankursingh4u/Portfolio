@@ -1,46 +1,79 @@
 'use client'
 
-import { useEffect, useRef, type ReactNode } from 'react'
-import { motion, useReducedMotion } from 'framer-motion'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import {
+  motion,
+  useMotionValue,
+  useReducedMotion,
+  useSpring,
+  useInView,
+} from 'framer-motion'
 import type { PlanetNav } from '@/lib/universe-nav'
-import { PLANET_TEXTURE_2K } from '@/lib/planet-textures'
 import { useUniverse } from '@/lib/hooks/useUniverse'
+import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
+import { PlanetHero3D } from './worlds/PlanetHero3D'
 
 const EASE = [0.22, 1, 0.36, 1] as const
 
-// Deterministic floating dust motes (SSR-safe — no Math.random at render).
-const MOTES = Array.from({ length: 14 }, (_, i) => {
-  const s = Math.sin(i * 12.9898) * 43758.5453
-  const r1 = s - Math.floor(s)
-  const s2 = Math.sin(i * 78.233) * 12543.21
-  const r2 = s2 - Math.floor(s2)
-  return {
-    left: 4 + r1 * 92, // vw %
-    size: 1.5 + r2 * 2.5,
-    dur: 14 + r1 * 18,
-    delay: r2 * 12,
-    drift: (r1 - 0.5) * 60,
-  }
-})
+export interface WorldStat {
+  value: string // e.g. "200+", "3", "2 wks"
+  label: string // e.g. "web3 projects"
+}
+
+/** A stat that counts up when it scrolls into view (falls back for non-numeric). */
+function AnimatedStat({ stat, accent }: { stat: WorldStat; accent: string }) {
+  const reduce = useReducedMotion()
+  const ref = useRef<HTMLDivElement>(null)
+  const inView = useInView(ref, { once: true, margin: '-40px' })
+  const numMatch = stat.value.match(/^(\D*)(\d+)(.*)$/)
+  const target = numMatch ? parseInt(numMatch[2], 10) : 0
+  const [shown, setShown] = useState(reduce || !numMatch ? stat.value : `${numMatch[1]}0${numMatch[3]}`)
+  const mv = useMotionValue(0)
+  const spring = useSpring(mv, { duration: 1.1, bounce: 0 })
+
+  useEffect(() => {
+    if (!inView || reduce || !numMatch) return
+    mv.set(target)
+    const unsub = spring.on('change', (v) => {
+      setShown(`${numMatch[1]}${Math.round(v)}${numMatch[3]}`)
+    })
+    return () => unsub()
+  }, [inView, reduce, numMatch, target, mv, spring])
+
+  return (
+    <div ref={ref}>
+      <div className="text-3xl font-bold text-white md:text-4xl" style={{ color: accent }}>
+        {shown}
+      </div>
+      <div className="mt-1 font-mono text-[11px] uppercase tracking-widest text-slate-400">
+        {stat.label}
+      </div>
+    </div>
+  )
+}
 
 export function PlanetWorld({
   nav,
   eyebrow,
   title,
   intro,
+  stats,
   children,
 }: {
   nav: PlanetNav
   eyebrow: string
   title: string
   intro?: string
+  stats?: WorldStat[]
   children: ReactNode
 }) {
   const reduce = useReducedMotion()
   const { exitWorld, takeAnchor } = useUniverse()
   const accent = nav.accent
-  const texture = PLANET_TEXTURE_2K[nav.name]
   const sectionRef = useRef<HTMLElement>(null)
+
+  // Behave like a real modal dialog: move focus in, trap it, restore on close.
+  useFocusTrap(sectionRef)
 
   // A moon brought us here → glide to its section once the landing settles.
   useEffect(() => {
@@ -50,7 +83,7 @@ export function PlanetWorld({
       sectionRef.current
         ?.querySelector(anchor)
         ?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
-    }, 750)
+    }, 900)
     return () => clearTimeout(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -61,125 +94,24 @@ export function PlanetWorld({
       role="dialog"
       aria-modal="true"
       aria-label={`${nav.label} world`}
-      className="fixed inset-0 z-50 overflow-y-auto overflow-x-hidden bg-[#04060e]"
-      initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 1.12, filter: 'blur(10px)' }}
+      tabIndex={-1}
+      className="fixed inset-0 z-50 overflow-y-auto overflow-x-hidden bg-[#04060e] focus:outline-none"
+      initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 1.04, filter: 'blur(6px)' }}
       animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-      exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 1.08, filter: 'blur(10px)' }}
-      transition={{ duration: reduce ? 0 : 0.6, ease: EASE }}
+      exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 1.03, filter: 'blur(8px)' }}
+      transition={{ duration: reduce ? 0 : 0.75, ease: EASE }}
     >
-      {/* ── Planet environment ─────────────────────────────────────────── */}
-      {/* Sky tinted by this planet's atmosphere */}
+      {/* Atmospheric tints */}
       <div
         aria-hidden="true"
         className="pointer-events-none fixed inset-0"
         style={{
-          background: `radial-gradient(120% 80% at 50% -10%, ${accent}26 0%, transparent 55%), radial-gradient(90% 50% at 50% 115%, ${accent}30 0%, transparent 60%)`,
+          background: `radial-gradient(130% 90% at 78% -10%, ${accent}2e 0%, transparent 52%), radial-gradient(90% 60% at 15% 108%, ${accent}22 0%, transparent 60%)`,
         }}
       />
 
-      {/* Aurora ribbons drifting in the accent colour */}
-      {!reduce && (
-        <>
-          <motion.div
-            aria-hidden="true"
-            className="pointer-events-none fixed -left-1/4 top-1/4 h-[40vh] w-[70vw] rounded-full"
-            style={{
-              background: `radial-gradient(ellipse at center, ${accent}14 0%, transparent 65%)`,
-            }}
-            animate={{ x: ['0%', '12%', '0%'], y: ['0%', '-8%', '0%'] }}
-            transition={{ duration: 26, repeat: Infinity, ease: 'easeInOut' }}
-          />
-          <motion.div
-            aria-hidden="true"
-            className="pointer-events-none fixed -right-1/4 top-1/2 h-[36vh] w-[60vw] rounded-full"
-            style={{
-              background: `radial-gradient(ellipse at center, ${accent}10 0%, transparent 65%)`,
-            }}
-            animate={{ x: ['0%', '-10%', '0%'], y: ['0%', '6%', '0%'] }}
-            transition={{ duration: 32, repeat: Infinity, ease: 'easeInOut' }}
-          />
-        </>
-      )}
-
-      {/* THE PLANET as a giant orb in the sky (top-right) — its real surface
-          slowly turning. Decorative only: it never sits behind body text. */}
-      <motion.div
-        aria-hidden="true"
-        className="pointer-events-none fixed -right-[10vmin] -top-[10vmin] z-0"
-        initial={reduce ? false : { opacity: 0, scale: 0.86 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: reduce ? 0 : 1.2, delay: 0.2, ease: EASE }}
-      >
-        <div
-          className="world-orb relative overflow-hidden rounded-full"
-          style={{
-            width: '42vmin',
-            height: '42vmin',
-            backgroundImage: `url(${texture})`,
-            backgroundSize: 'auto 100%',
-            backgroundRepeat: 'repeat-x',
-            boxShadow: `0 0 90px -18px ${accent}88, inset -24px -18px 60px rgba(0,0,0,0.75), inset 6px 6px 30px rgba(255,255,255,0.14)`,
-          }}
-        >
-          <div
-            className="absolute inset-0 rounded-full"
-            style={{
-              background:
-                'radial-gradient(circle at 32% 30%, rgba(255,255,255,0.12), rgba(0,0,0,0) 45%), radial-gradient(circle at 70% 72%, rgba(0,0,0,0.5), rgba(0,0,0,0) 60%)',
-            }}
-          />
-        </div>
-      </motion.div>
-
-      {/* Thin, DARK surface horizon at the very bottom — pure ambience. */}
-      <motion.div
-        aria-hidden="true"
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-0 h-[20vh]"
-        initial={reduce ? false : { opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: reduce ? 0 : 1.0, delay: 0.3, ease: EASE }}
-      >
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage: `url(${texture})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center 20%',
-            maskImage: 'linear-gradient(to top, black 30%, transparent 100%)',
-            WebkitMaskImage: 'linear-gradient(to top, black 30%, transparent 100%)',
-            opacity: 0.32,
-          }}
-        />
-        <div
-          className="absolute inset-x-[8%] top-6 h-px"
-          style={{ background: `linear-gradient(90deg, transparent, ${accent}88, transparent)` }}
-        />
-      </motion.div>
-
-      {/* Rising dust motes in the planet's light */}
-      {!reduce &&
-        MOTES.map((m, i) => (
-          <span
-            key={i}
-            aria-hidden="true"
-            className="world-mote pointer-events-none fixed rounded-full"
-            style={
-              {
-                left: `${m.left}%`,
-                bottom: '-8px',
-                width: m.size,
-                height: m.size,
-                background: accent,
-                '--mote-dur': `${m.dur}s`,
-                '--mote-delay': `${m.delay}s`,
-                '--mote-drift': `${m.drift}px`,
-              } as React.CSSProperties
-            }
-          />
-        ))}
-
       {/* ── Top bar ────────────────────────────────────────────────────── */}
-      <div className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-white/5 bg-[#04060e]/70 px-5 py-3 backdrop-blur-xl md:px-8">
+      <div className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-white/5 bg-[#04060e]/85 px-5 py-3 backdrop-blur-md md:px-8">
         <button
           type="button"
           onClick={exitWorld}
@@ -188,12 +120,10 @@ export function PlanetWorld({
           <span className="transition-transform group-hover:-translate-x-0.5">←</span>
           back to space
         </button>
-
-        <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-white/40">
+        <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-white/60">
           <span className="h-2 w-2 animate-pulse rounded-full" style={{ background: accent }} />
           {nav.name} · orbit locked
         </div>
-
         <button
           type="button"
           onClick={exitWorld}
@@ -204,110 +134,189 @@ export function PlanetWorld({
         </button>
       </div>
 
-      {/* ── Content (staggered reveal) ─────────────────────────────────── */}
-      <div className="relative z-10 mx-auto w-full max-w-5xl px-5 py-10 pb-[24vh] md:px-8 md:py-16">
-        <motion.div
-          initial="hidden"
-          animate="show"
-          variants={{
-            hidden: {},
-            show: { transition: { staggerChildren: reduce ? 0 : 0.12, delayChildren: 0.15 } },
-          }}
-        >
+      {/* ── HERO ───────────────────────────────────────────────────────── */}
+      <header className="relative mx-auto grid w-full max-w-6xl items-center gap-8 px-5 pb-6 pt-10 md:min-h-[74vh] md:grid-cols-[1.05fr_0.95fr] md:gap-10 md:px-8 md:pt-16">
+        {/* Copy */}
+        <div className="relative z-10 order-2 md:order-1">
           <motion.p
-            variants={{
-              hidden: reduce ? {} : { opacity: 0, y: 18 },
-              show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: EASE } },
-            }}
-            className="font-mono text-xs uppercase tracking-[0.25em]"
-            style={{ color: accent }}
+            initial={reduce ? false : { opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: EASE, delay: 0.1 }}
+            className="inline-flex items-center gap-2 rounded-full border px-3 py-1 font-mono text-[11px] uppercase tracking-[0.22em]"
+            style={{ borderColor: `${accent}44`, color: accent, background: `${accent}12` }}
           >
+            <span className="h-1.5 w-1.5 rounded-full" style={{ background: accent }} />
             {eyebrow}
           </motion.p>
           <motion.h1
-            variants={{
-              hidden: reduce ? {} : { opacity: 0, y: 22 },
-              show: { opacity: 1, y: 0, transition: { duration: 0.55, ease: EASE } },
+            initial={reduce ? false : { opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: EASE, delay: 0.16 }}
+            className="mt-4 text-5xl font-bold leading-[1.02] tracking-tight md:text-7xl"
+            style={{
+              backgroundImage: `linear-gradient(105deg, #ffffff 30%, ${accent})`,
+              WebkitBackgroundClip: 'text',
+              backgroundClip: 'text',
+              color: 'transparent',
             }}
-            className="mt-3 text-4xl font-bold tracking-tight text-white md:text-6xl"
           >
             {title}
           </motion.h1>
           {intro && (
             <motion.p
-              variants={{
-                hidden: reduce ? {} : { opacity: 0, y: 22 },
-                show: { opacity: 1, y: 0, transition: { duration: 0.55, ease: EASE } },
-              }}
-              className="mt-5 max-w-2xl text-base leading-relaxed text-slate-300 md:text-lg"
+              initial={reduce ? false : { opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, ease: EASE, delay: 0.24 }}
+              className="mt-5 max-w-xl text-base leading-relaxed text-slate-300 md:text-lg"
             >
               {intro}
             </motion.p>
           )}
-          <motion.div
-            variants={{
-              hidden: reduce ? {} : { opacity: 0, y: 28 },
-              show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: EASE } },
+          {stats && stats.length > 0 && (
+            <motion.div
+              initial={reduce ? false : { opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, ease: EASE, delay: 0.32 }}
+              className="mt-8 flex flex-wrap gap-x-10 gap-y-5"
+            >
+              {stats.map((s) => (
+                <AnimatedStat key={s.label} stat={s} accent={accent} />
+              ))}
+            </motion.div>
+          )}
+        </div>
+
+        {/* The real 3D planet */}
+        <motion.div
+          initial={reduce ? false : { opacity: 0, scale: 0.82 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 1.1, ease: EASE, delay: 0.15 }}
+          className="relative order-1 flex items-center justify-center md:order-2"
+        >
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 -z-10"
+            style={{
+              background: `radial-gradient(circle at 50% 45%, ${accent}22, transparent 60%)`,
             }}
-            className="mt-12"
-          >
-            {children}
-          </motion.div>
+          />
+          <PlanetHero3D
+            planet={nav.name}
+            accent={accent}
+            className="aspect-square w-[68vw] max-w-[440px] md:w-full"
+          />
         </motion.div>
+
+        {/* scroll cue */}
+        <motion.div
+          aria-hidden
+          className="absolute inset-x-0 bottom-1 z-10 hidden justify-center md:flex"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1, duration: 0.6 }}
+        >
+          <div className="flex flex-col items-center gap-1 font-mono text-[10px] uppercase tracking-widest text-white/55">
+            scroll
+            <motion.span
+              animate={reduce ? {} : { y: [0, 6, 0] }}
+              transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              ↓
+            </motion.span>
+          </div>
+        </motion.div>
+      </header>
+
+      {/* ── Body ───────────────────────────────────────────────────────── */}
+      <div className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-28 pt-6 md:px-8">
+        {children}
       </div>
 
       <style jsx global>{`
-        .world-mote {
-          opacity: 0;
-          animation: moteRise var(--mote-dur, 16s) linear var(--mote-delay, 0s) infinite;
-          will-change: transform, opacity;
+        .card-shine::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(105deg, transparent 42%, rgba(255,255,255,0.09) 50%, transparent 58%);
+          transform: translateX(-130%);
+          transition: transform 0.7s ease;
+          pointer-events: none;
         }
-        @keyframes moteRise {
-          0% { opacity: 0; transform: translate3d(0, 0, 0); }
-          12% { opacity: 0.55; }
-          85% { opacity: 0.25; }
-          100% { opacity: 0; transform: translate3d(var(--mote-drift, 20px), -92vh, 0); }
-        }
-        .world-orb {
-          animation: orbTurn 210s linear infinite;
-          will-change: background-position;
-        }
-        @keyframes orbTurn {
-          from { background-position-x: 0; }
-          to { background-position-x: 84vmin; } /* = 2 × orb width → one revolution */
-        }
+        .card-shine:hover::after { transform: translateX(130%); }
         @media (prefers-reduced-motion: reduce) {
-          .world-mote { display: none; }
-          .world-orb { animation: none; }
+          .card-shine::after { display: none; }
         }
       `}</style>
     </motion.section>
   )
 }
 
-/** A reusable dark glass card used across worlds. */
+/** Section heading with an accent kicker — gives the body editorial rhythm. */
+export function WorldSection({
+  kicker,
+  title,
+  subtitle,
+  accent,
+  children,
+}: {
+  kicker?: string
+  title: string
+  subtitle?: string
+  accent?: string
+  children: ReactNode
+}) {
+  const reduce = useReducedMotion()
+  return (
+    <section className="mt-16 first:mt-4">
+      <motion.div
+        initial={reduce ? false : { opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: '-80px' }}
+        transition={{ duration: 0.5, ease: EASE }}
+      >
+        {kicker && (
+          <p
+            className="font-mono text-[11px] uppercase tracking-[0.22em]"
+            style={{ color: accent ?? '#8ca3d8' }}
+          >
+            {kicker}
+          </p>
+        )}
+        <h2 className="mt-2 text-2xl font-bold text-white md:text-3xl">{title}</h2>
+        {subtitle && <p className="mt-1.5 text-sm text-slate-400">{subtitle}</p>}
+      </motion.div>
+      <div className="mt-6">{children}</div>
+    </section>
+  )
+}
+
+/**
+ * A reusable dark glass card — slides in from the SIDE on scroll (alternating
+ * left/right by index so a grid weaves in), shines on hover.
+ */
 export function GlassCard({
   children,
   className = '',
   accent,
+  index = 0,
 }: {
   children: ReactNode
   className?: string
   accent?: string
+  index?: number
 }) {
+  const reduce = useReducedMotion()
+  const fromX = index % 2 === 0 ? -48 : 48
   return (
-    <div
-      className={`rounded-2xl border border-white/10 bg-[#0a101f]/85 p-5 backdrop-blur-xl transition-[transform,border-color,box-shadow] duration-300 ease-out hover:-translate-y-1 hover:border-white/25 ${className}`}
-      style={
-        accent
-          ? ({
-              boxShadow: `inset 0 1px 0 0 ${accent}22`,
-              ['--card-accent' as string]: accent,
-            } as React.CSSProperties)
-          : undefined
-      }
+    <motion.div
+      initial={reduce ? false : { opacity: 0, x: fromX, y: 12 }}
+      whileInView={{ opacity: 1, x: 0, y: 0 }}
+      viewport={{ once: true, margin: '-50px' }}
+      transition={{ duration: 0.6, ease: EASE, delay: (index % 3) * 0.06 }}
+      className={`card-shine relative overflow-hidden rounded-2xl border border-white/10 bg-[#0a101f]/85 p-5 transition-[transform,border-color,box-shadow] duration-300 ease-out hover:-translate-y-1 hover:border-white/25 ${className}`}
+      style={accent ? { boxShadow: `inset 0 1px 0 0 ${accent}22` } : undefined}
     >
       {children}
-    </div>
+    </motion.div>
   )
 }

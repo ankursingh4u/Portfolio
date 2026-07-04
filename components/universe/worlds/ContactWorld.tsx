@@ -2,7 +2,14 @@
 
 import { siteConfig } from '@/lib/site-config'
 import type { PlanetNav } from '@/lib/universe-nav'
-import { PlanetWorld, GlassCard } from '../PlanetWorld'
+import { PlanetWorld, GlassCard, WorldSection, type WorldStat } from '../PlanetWorld'
+import { SatelliteOrbit } from './SatelliteOrbit'
+
+const stats: WorldStat[] = [
+  { value: '24', label: 'hr reply time' },
+  { value: '5', label: 'ways to reach me' },
+  { value: '100%', label: 'yours to build' },
+]
 
 const channels = [
   { label: 'Email', value: siteConfig.email, href: `mailto:${siteConfig.email}`, icon: '✉️' },
@@ -19,8 +26,23 @@ export function ContactWorld({ nav }: { nav: PlanetNav }) {
       eyebrow="Neptune · contact"
       title="Let’s build something real"
       intro={`I'm ${siteConfig.status}. Tell me what you're building — I'll scope it, estimate it, and ship it.`}
+      stats={stats}
     >
-      <div className="grid gap-6 md:grid-cols-2">
+      {/* ── Signature: the satellites in orbit ── */}
+      <WorldSection
+        kicker="my satellites"
+        title="Everything orbits here"
+        subtitle="The deepest world is where journeys land. Lock onto a channel to hail me."
+        accent={nav.accent}
+      >
+        <SatelliteOrbit
+          accent={nav.accent}
+          email={siteConfig.email}
+          satellites={channels.filter((c) => c.label !== 'Email')}
+        />
+      </WorldSection>
+
+      <div className="mt-16 grid gap-6 md:grid-cols-2">
         {/* Primary CTA */}
         <GlassCard accent={nav.accent} className="flex flex-col justify-center">
           <p className="font-mono text-[11px] uppercase tracking-widest" style={{ color: nav.accent }}>

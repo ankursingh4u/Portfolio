@@ -3,12 +3,13 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { siteConfig } from '@/lib/site-config'
+import { SUN_NAV } from '@/lib/universe-nav'
 import { useUniverse } from '@/lib/hooks/useUniverse'
 
 const roles = ['Full-Stack Engineer', 'Shopify App Builder', 'AI Product Developer']
 
 export function HeroOverlay() {
-  const { phase, tourActive, bioOpen, startTour, openBio } = useUniverse()
+  const { phase, tourActive, bioOpen, startTour, enterWorld } = useUniverse()
   const [roleIndex, setRoleIndex] = useState(0)
   const [displayed, setDisplayed] = useState('')
   const [isDeleting, setIsDeleting] = useState(false)
@@ -75,7 +76,7 @@ export function HeroOverlay() {
               </motion.button>
               <button
                 type="button"
-                onClick={openBio}
+                onClick={() => enterWorld(SUN_NAV)}
                 className="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-white/10 md:text-sm"
               >
                 Who am I?
@@ -83,7 +84,7 @@ export function HeroOverlay() {
             </div>
           </div>
 
-          <p className="mt-2 hidden pl-1 font-mono text-[11px] uppercase tracking-widest text-slate-500 md:block">
+          <p className="mt-2 hidden pl-1 font-mono text-[11px] uppercase tracking-widest text-slate-400 md:block">
             ↗ click a planet to travel
           </p>
         </motion.div>

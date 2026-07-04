@@ -19,6 +19,7 @@ import { siteConfig } from '@/lib/site-config'
  * world after landing; full URLs open externally.
  */
 export type DestId =
+  | 'origin'
   | 'now'
   | 'story'
   | 'flagships'
@@ -163,6 +164,21 @@ export const PLANET_NAV: Record<string, PlanetNav> = {
       { id: 'insta-sat', label: 'Instagram ↗', target: siteConfig.social.instagram, tag: 'satellite' },
     ],
   },
+}
+
+/**
+ * The Sun is a world too — the centre of it all. `name: 'Sun'` routes the camera
+ * dive to the origin (see SolarStage3D); it is NOT in PLANET_NAV so it never
+ * appears as an orbiting planet, but it lands on a full world page like the rest.
+ */
+export const SUN_NAV: PlanetNav = {
+  name: 'Sun',
+  label: 'Who I Am',
+  kind: 'world',
+  destId: 'origin',
+  accent: '#f5b73b',
+  tag: 'the centre of it all',
+  blurb: 'The star everything orbits — the story, the drive, and the life beyond the code.',
 }
 
 /** Tour visits the system sun-outward, the way the eye already follows the orbits. */

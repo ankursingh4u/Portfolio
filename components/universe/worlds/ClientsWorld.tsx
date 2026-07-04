@@ -1,9 +1,17 @@
 'use client'
 
 import { companyProjects } from '@/lib/site-config'
+import { motion } from 'framer-motion'
 import type { PlanetNav } from '@/lib/universe-nav'
-import { PlanetWorld, GlassCard } from '../PlanetWorld'
+import { PlanetWorld, GlassCard, WorldSection, type WorldStat } from '../PlanetWorld'
 import { LivePreview } from './LivePreview'
+import { ClientRadar, type RadarPin } from './ClientRadar'
+
+const stats: WorldStat[] = [
+  { value: '3', label: 'live client systems' },
+  { value: '2', label: 'countries' },
+  { value: '2', label: 'wks avg delivery' },
+]
 
 // ── Paid client work, live in production — each one a moon of Mars ──────────
 const clientWork = [
@@ -39,6 +47,13 @@ const clientWork = [
   },
 ]
 
+// Radar contacts — roughly plotted by geography (AU lower-right, India upper).
+const radarPins: RadarPin[] = [
+  { id: 'saltys', name: "Salty's Seafood", sub: 'Australia', x: 296, y: 286, accent: '#f59e0b' },
+  { id: 'steelline', name: 'Steel Line Logistics', sub: 'India', x: 138, y: 128, accent: '#22d3ee' },
+  { id: 'draftinvitations', name: 'DraftInvitations', sub: 'India', x: 178, y: 96, accent: '#ec4899' },
+]
+
 export function ClientsWorld({ nav }: { nav: PlanetNav }) {
   return (
     <PlanetWorld
@@ -46,13 +61,29 @@ export function ClientsWorld({ nav }: { nav: PlanetNav }) {
       eyebrow="Mars · client systems"
       title="Shipped for real businesses"
       intro="Paid systems running in production right now — ordering, logistics, invitations. Real merchants, real money, real uptime. Every one of these is a moon of Mars."
+      stats={stats}
     >
+      {/* ── Signature: the ops radar ── */}
+      <WorldSection
+        kicker="mission map"
+        title="Systems in the field"
+        subtitle="Live client deployments plotted by region. Lock onto a contact to identify it."
+        accent={nav.accent}
+      >
+        <ClientRadar pins={radarPins} accent={nav.accent} />
+      </WorldSection>
+
+      <WorldSection kicker="the dossiers" title="Each system, up close" accent={nav.accent}>
       <div className="space-y-10">
         {clientWork.map((c) => (
-          <section
+          <motion.section
+            initial={{ opacity: 0, y: 28 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-80px' }}
+            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
             key={c.id}
             id={c.id}
-            className="scroll-mt-24 overflow-hidden rounded-3xl border border-white/10 bg-[#0a101f]/85 backdrop-blur-xl"
+            className="scroll-mt-24 overflow-hidden rounded-3xl border border-white/10 bg-[#0a101f]/90"
             style={{ boxShadow: `inset 0 1px 0 0 ${c.accent}33` }}
           >
             <div className="grid md:grid-cols-2">
@@ -74,9 +105,10 @@ export function ClientsWorld({ nav }: { nav: PlanetNav }) {
                 </a>
               </div>
             </div>
-          </section>
+          </motion.section>
         ))}
       </div>
+      </WorldSection>
 
       {/* ── Production Shopify apps built at CodersHive ── */}
       <h2 className="mt-14 text-xl font-bold text-white">Production Shopify apps</h2>
@@ -84,8 +116,8 @@ export function ClientsWorld({ nav }: { nav: PlanetNav }) {
         Built at CodersHive — used by real merchants every day.
       </p>
       <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {companyProjects.map((p) => (
-          <GlassCard key={p.id} accent={nav.accent}>
+        {companyProjects.map((p, i) => (
+            <GlassCard key={p.id} accent={nav.accent} index={i}>
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold text-white">{p.name}</h3>
               <span className="rounded-full border border-white/15 bg-white/5 px-2 py-0.5 font-mono text-[9px] uppercase text-slate-400">

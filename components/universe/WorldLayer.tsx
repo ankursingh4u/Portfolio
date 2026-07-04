@@ -2,6 +2,7 @@
 
 import { AnimatePresence } from 'framer-motion'
 import { useUniverse } from '@/lib/hooks/useUniverse'
+import { SunWorld } from './worlds/SunWorld'
 import { NowWorld } from './worlds/NowWorld'
 import { StoryWorld } from './worlds/StoryWorld'
 import { FlagshipsWorld } from './worlds/FlagshipsWorld'
@@ -26,6 +27,8 @@ function Render({ destId }: { destId: string }) {
   const { active } = useUniverse()
   if (!active) return null
   switch (destId) {
+    case 'origin':
+      return <SunWorld nav={active} />
     case 'now':
       return <NowWorld nav={active} />
     case 'story':

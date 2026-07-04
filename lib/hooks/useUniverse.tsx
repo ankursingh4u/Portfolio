@@ -53,6 +53,12 @@ interface UniverseCtx {
   setSpotlight: (v: { x: number; y: number; r: number } | null) => void
   getSpotlight: () => { x: number; y: number; r: number } | null
   frozen: boolean
+  // free-exploration controls
+  paused: boolean
+  togglePaused: () => void
+  /** Bumps each time the user asks to recenter the view on the sun. */
+  recenterKey: number
+  recenter: () => void
   // actions
   enterWorld: (nav: PlanetNav, anchor?: string) => void
   /** Consume-once '#anchor' a moon requested — the world scrolls to it on mount. */
@@ -74,7 +80,9 @@ export function useUniverse() {
 }
 
 const TOUR_PLANETS = TOUR_ORDER.map((n) => PLANET_NAV[n]).filter(Boolean)
-const WARP_IN_MS = 850
+// Long enough for the camera to fly a full lap around the target before the
+// world page fades in over the final swoop (see SolarStage3D DIVE_MS = 1750).
+const WARP_IN_MS = 1500
 const WARP_OUT_MS = 700
 // How long each tour card lingers before auto-advancing. Slowed so there's time
 // to actually read it — the real "world" planets (the substance) hold longest.
@@ -96,6 +104,12 @@ export function UniverseProvider({
   const [tourActive, setTourActive] = useState(false)
   const [tourIndex, setTourIndex] = useState(0)
   const [bioOpen, setBioOpen] = useState(false)
+
+  // Free exploration: pause the orbital motion, or recenter on the sun.
+  const [paused, setPaused] = useState(false)
+  const togglePaused = useCallback(() => setPaused((p) => !p), [])
+  const [recenterKey, setRecenterKey] = useState(0)
+  const recenter = useCallback(() => setRecenterKey((k) => k + 1), [])
 
   const nodes = useRef<Record<string, { x: number; y: number }>>({})
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
@@ -300,6 +314,10 @@ export function UniverseProvider({
     setSpotlight,
     getSpotlight,
     frozen: frozen || phase !== 'home',
+    paused,
+    togglePaused,
+    recenterKey,
+    recenter,
     enterWorld,
     takeAnchor,
     exitWorld,

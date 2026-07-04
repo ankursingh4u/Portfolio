@@ -3,12 +3,28 @@
 import { aboutContent, companyConfig, currentWork, siteConfig } from '@/lib/site-config'
 import { navByDest, type PlanetNav } from '@/lib/universe-nav'
 import { useUniverse } from '@/lib/hooks/useUniverse'
-import { PlanetWorld, GlassCard } from '../PlanetWorld'
+import { PlanetWorld, GlassCard, type WorldStat } from '../PlanetWorld'
+import { LiveTicker, type TickerItem } from './LiveTicker'
+
+const stats: WorldStat[] = [
+  { value: '3', label: 'products in flight' },
+  { value: '1', label: 'full-time role' },
+  { value: '2026', label: 'building since' },
+]
 
 export function NowWorld({ nav }: { nav: PlanetNav }) {
   const { enterWorld } = useUniverse()
   const contact = navByDest('contact')
   const flagships = navByDest('flagships')
+
+  const feed: TickerItem[] = [
+    { text: currentWork.name, tag: 'shipping' },
+    { text: 'SEO4AI — AI share-of-voice', tag: 'flagship' },
+    { text: 'DemandRadar — Shopify demand', tag: 'flagship' },
+    { text: 'Palm Insights — analytics', tag: 'flagship' },
+    { text: siteConfig.status, tag: 'status' },
+    ...currentWork.tech.map((t) => ({ text: t, tag: 'stack' })),
+  ]
 
   return (
     <PlanetWorld
@@ -16,6 +32,7 @@ export function NowWorld({ nav }: { nav: PlanetNav }) {
       eyebrow="Mercury · now"
       title="In motion, right now"
       intro="The fastest orbit carries the freshest news — what I'm building, shipping and learning this month."
+      stats={stats}
     >
       {/* status banner */}
       <div
@@ -33,9 +50,14 @@ export function NowWorld({ nav }: { nav: PlanetNav }) {
         </button>
       </div>
 
+      {/* ── Signature: the live feed, always in motion ── */}
+      <div className="mt-6">
+        <LiveTicker items={feed} accent={nav.accent} />
+      </div>
+
       <div className="mt-8 grid gap-5 md:grid-cols-2">
         {/* shipping at work */}
-        <GlassCard accent={nav.accent}>
+        <GlassCard accent={nav.accent} index={0}>
           <p className="font-mono text-[11px] uppercase tracking-widest" style={{ color: nav.accent }}>
             shipping · {companyConfig.name}
           </p>
@@ -52,7 +74,7 @@ export function NowWorld({ nav }: { nav: PlanetNav }) {
         </GlassCard>
 
         {/* building for myself */}
-        <GlassCard accent={nav.accent}>
+        <GlassCard accent={nav.accent} index={1}>
           <p className="font-mono text-[11px] uppercase tracking-widest" style={{ color: nav.accent }}>
             building · the flagships
           </p>
@@ -71,7 +93,7 @@ export function NowWorld({ nav }: { nav: PlanetNav }) {
         </GlassCard>
 
         {/* learning */}
-        <GlassCard accent={nav.accent} className="md:col-span-2">
+        <GlassCard accent={nav.accent} index={2} className="md:col-span-2">
           <p className="font-mono text-[11px] uppercase tracking-widest" style={{ color: nav.accent }}>
             sharpening
           </p>
